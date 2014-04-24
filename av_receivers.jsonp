@@ -1,4 +1,4 @@
-{
+init({
   "offset" : 0,
   "rows": [
     { "_id" : { "$oid" : "5355776275ada637cbff734e" }, "rating" : 100, "name" : "Pathos Cinema-X", "URL" : "http://www.whathifi.com/review/pathos-cinema-x", "price" : 4750, "spec" : { "Composite in" : 0, "Multichannel analogue in" : "6", "Coaxial digital out" : 0, "Component in" : 0, "Tuner Presets" : 0, "DTS Master Audio" : false, "Room EQ" : false, "HDMI Video in" : 0, "HDMI Audio out" : 0, "Internet" : false, "Dimensions (hwd, cm)" : [ "18", "43", "43" ], "Analogue audio out" : 0, "FM" : false, "S-Video out" : false, "Video scaling" : "0", "HDMI Video out" : 0, "DAB" : false, "Coaxial digital in" : 0, "DTS 96/24" : false, "Learning remote" : false, "Composite out" : 0, "Dolby Digital Plus" : false, "HD audio via HDMI" : false, "LW" : false, "FireWire in" : 0, "HDMI Audio in" : 0, "Auto set-up" : false, "Preouts" : 1, "Channels/power(w)" : [ "5", "110" ], "THX" : "0", "Optical digital in" : 0, "Dolby Digital EX" : false, "Video upconversion" : false, "Component out" : 0, "Ethernet video" : 0, "DTS-ES" : false, "Multiroom" : 0, "USB Audio in" : 0, "USB Video" : 0, "Ethernet audio" : 0, "Phono in" : 0, "DTS Neo:6" : false, "Analogue audio in" : 7, "DTS HD" : false, "S-Video in" : 0, "Dolby TrueHD" : false, "HDMI 1&#46;3a" : false, "SW" : false, "Pro-Logic II" : false, "MW" : false, "Pro-Logic IIx" : false, "Weight (kg)" : 25, "Optical digital out" : 0, "Network capable" : false } } ,
@@ -137,4 +137,4 @@
   "total_rows" : 131 ,
   "query" : {} ,
   "millis" : 8
-}
+})

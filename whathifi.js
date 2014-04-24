@@ -22,9 +22,9 @@ Tue |  .               .   ,   o
 
 To achieve this, 3 accessor functions are required:
 
-  x()   Hours in the example above
-  y()   Day-of-week in the example above
-  d()   Size of each bubble
+  x(d,i) -> (float) Hours in the example above
+  y(d,i) -> (float) Day-of-week in the example above
+  d(d,i) -> (float) Size of each bubble
 
 Sample usage:
 
@@ -56,24 +56,33 @@ Sample usage:
 function punchcard_chart(){
     "use strict";
 
+    // CONFIGURATION
+    /////////////////////////////
+
     // Default configuration ('c' = 'configuration'). Values may be constants, 
-    // or functions which accept (datum, index) as per d3 conventions
+    // or functions which accept (datum, index) as per d3 conventions. All 
+    // parameters can be retrieved or set as in the example above.
     var c = {};
     c.width  = 600;
     c.height = 200;
     c.x      = function(d,i){return d.x;};
     c.y      = function(d,i){return d.y;};
     c.d      = function(d,i){return d.d;};
+
+    // Passed to Array.filter() on the source data
     c.filter = function(d){return true;};
-    c.id     = function(d,i){return ''+c.x(d,i)+c.y(d,i)+c.d(d,i);};   // How input data is distinguished (entry/exit calculations)
+
+    // Passed as the second argument (`key`) to to d3.selection.data
+    c.key    = function(d,i){return ''+c.x(d,i)+c.y(d,i)+c.d(d,i);};
+
+    // CHART
+    /////////////////////////////
 
     function my(d3OuterSelection){
         d3OuterSelection.each(function punchcard_chart_inner(d, i){
             // `d`: (Object) Input data
             // `i`: (int) Index within the outer selection
             // `this`: (DOMElement) Element to render chart within, e.g. svg
-
-            console.log('punchcard_chart_inner', this, this.arguments);
 
             var d3SVG = d3.select(this).select('svg.punchcard_chart');
 
@@ -105,7 +114,6 @@ function punchcard_chart(){
                 .domain(d.map(c.y).sort(d3.descending))
                 .rangeRoundBands([0, c.height], 0.5)
                 ;
-            console.log(scale_y.domain());
             var scale_d = d3.scale.sqrt()
                 .domain(d3.extent(d.map(c.d).sort(d3.descending)))
                 .range([1, scale_y.rangeBand()]) // Bandwidth of y-axis
@@ -129,7 +137,7 @@ function punchcard_chart(){
 
             // Update
             var d3Selection = d3SVG.selectAll('g.bubble')
-                .data(d, c.id)
+                .data(d, c.key)
                 .classed('new', false)
                 ;
             d3Selection.selectAll('circle')
@@ -167,6 +175,7 @@ function punchcard_chart(){
     // For every key in our configuration (`c`) we generate a function which 
     // either returns the current configuration value, or sets it to the 
     // user-provided value.
+
     for (var rAttr in c){
         var rCode = ''
             +'my.'+rAttr+' = function(mValue){'
@@ -175,19 +184,13 @@ function punchcard_chart(){
             +'\n  return my;'
             +'\n}'
             +'\n';
-        console.log(rCode);
         eval(rCode);
     }
 
     return my;
 }
-function init(sError, sJSONData){
+function init(sJSONData){
     "use strict";
-
-    if (sError){
-        console.error(sError);
-        return;
-    }
 
     window.sJSONData = sJSONData;
     console.log(sJSONData);
@@ -225,9 +228,10 @@ function init(sError, sJSONData){
                     .width(1024)
                     .height(200)
                     .x(function extract_data_x(d,i){return Math.ceil(d.price/200)*200;})
+                    .x(function extract_data_x(d,i){return d.price;})
                     .y(function extract_data_y(d,i){return d.rating;})
                     .d(function extract_data_d(d,i){return 1;})
-                    .id(function(d,i){return d._id.$oid;})
+                    .key(function(d,i){return d._id.$oid;})
                     .filter(function filter_d(d,i){return d.price < 7000;})
                     ;
 
@@ -258,4 +262,3 @@ function init(sError, sJSONData){
     //     },
     //     1000);
 }
-d3.json("./av_receivers.json", init);
