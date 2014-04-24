@@ -1,9 +1,55 @@
 svg {
-    /* A4 paper size */
-    /* background-color: lightpink; */
+    padding: 10px;  /* Space for shadows etc */
 }
 
 svg.punchcard_chart g.bubble circle {
     stroke: black;
     fill: steelblue;
+}
+svg.punchcard_chart g.bubble circle:hover {
+    filter: url(#filter1);
+}
+
+/* X-axis */
+svg.punchcard_chart g.x_axis {
+    stroke: black;
+    fill: none;
+}
+svg.punchcard_chart g.x_axis path.domain {
+    /* Edge of data region, including outer ticks */
+}
+svg.punchcard_chart g.x_axis g.tick line {
+    stroke-dasharray: 5 10;
+    stroke: rgb(203, 235, 255);
+}
+svg.punchcard_chart g.x_axis text.label {
+    stroke: none;
+    fill: black;
+    text-anchor: middle;
+}
+svg.punchcard_chart g.x_axis g.tick text {
+    stroke: none;
+    fill: black;
+}
+
+/* Y-axis */
+svg.punchcard_chart g.y_axis {
+    stroke: black;
+    fill: none;
+}
+svg.punchcard_chart g.y_axis path.domain {
+    /* Edge of data region, including outer ticks */
+}
+svg.punchcard_chart g.y_axis g.tick line {
+    stroke-dasharray: 5 10;
+    stroke: rgb(198, 176, 207);
+}
+svg.punchcard_chart g.y_axis text.label {
+    stroke: none;
+    fill: black;
+    text-anchor: middle;
+}
+svg.punchcard_chart g.y_axis g.tick text {
+    stroke: none;
+    fill: black;
 }

@@ -1,9 +1,11 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<html>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC
+    "-//W3C//DTD XHTML 1.1 plus MathML 2.0 plus SVG 1.1//EN"
+        "http://www.w3.org/2002/04/xhtml-math-svg/xhtml-math-svg.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
     <head>
-        <script type='text/javascript' src='./d3.v3.min.js'></script>
-        <script type='text/javascript' src='./whathifi.js'></script>
+        <script type='text/javascript' src='d3.v3.js'></script>
+        <script type='text/javascript' src='whathifi.js'></script>
         <link rel='stylesheet' type='text/css' href='whathifi.css' />
         <title>What HiFi AV Receiver reviews</title>
     </head>
@@ -21,18 +23,33 @@
         In all, <span id='review_count'>COUNT</span> reviews have been scraped 
         into my MongoDB based database.
         </p>
-        <ul id='review_names'>
-        </ul>
-        <p>Sample chart (used during development of the Punchcard Chart 
-        code):</p>
-        <p id='example'/>
         <p>Punchcard Chart of AV receiver ratings (y-axis) versus price in £GBP 
         (x-axis). Bubble size represent number of reviews which fall into the 
         category.</p>
-        <p id='punchcard_chart'/>
+        <p id='punchcard_chart'></p>
 
         <!-- Load this last. It will invoke whathifi.js::init() with a data 
         payload, which will modify the document above -->
         <script type='text/javascript' src='./av_receivers.jsonp'></script>
+
+        <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
+            <defs>
+                <filter id="filter1" filterUnits='userSpaceOnUse' x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+                    <feOffset in="blur" dx="2" dy="2" result="offsetBlur"/>
+                    <feSpecularLighting in="blur" surfaceScale="5" specularConstant=".75" specularExponent="20" lighting-color="#bbbbbb" result="specOut">
+                        <fePointLight x="-5000" y="-10000" z="20000"/>
+                    </feSpecularLighting>
+                    <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut"/>
+                    <feComposite in="SourceGraphic" in2="specOut" operator="arithmetic" k1="0" k2="1" k3="1" 
+                    k4="0" result="litPaint"/>
+                    <feMerge>
+                        <feMergeNode in="offsetBlur"/>
+                        <feMergeNode in="litPaint"/>
+                    </feMerge>
+                </filter>
+            </defs>
+        </svg>
+
     </body>
 </html>
