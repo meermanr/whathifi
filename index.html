@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<html>
+    <head>
+        <script type='text/javascript' src='./d3.v3.min.js'></script>
+        <script type='text/javascript' src='./whathifi.js'></script>
+        <link rel='stylesheet' type='text/css' href='whathifi.css' />
+        <title>What HiFi AV Receiver reviews</title>
+    </head>
+    <body>
+        <h1>What HiFi AV Receiver reviews</h1>
+        <p>
+        I wrote a script to scrape the technical specifications, ratings, and 
+        prices of all the Home Cinema AV Receiver reviews on <a 
+            href='http://whathifi.com'>What HiFi website</a> because their 
+        search feature did not provide a means to filter reviews by anything 
+        useful, such as whether it is THX certified or not, or how many 
+        speakers outputs it supports.
+        </p>
+        <p>
+        In all, <span id='review_count'>COUNT</span> reviews have been scraped 
+        into my MongoDB based database.
+        </p>
+        <ul id='review_names'>
+        </ul>
+        <p>Sample chart (used during development of the Punchcard Chart 
+        code):</p>
+        <p id='example'/>
+        <p>Punchcard Chart of AV receiver ratings (y-axis) versus price in £GBP 
+        (x-axis). Bubble size represent number of reviews which fall into the 
+        category.</p>
+        <p id='punchcard_chart'/>
+    </body>
+</html>

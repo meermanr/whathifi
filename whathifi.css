@@ -1,0 +1,9 @@
+svg {
+    /* A4 paper size */
+    /* background-color: lightpink; */
+}
+
+svg.punchcard_chart g.bubble circle {
+    stroke: black;
+    fill: steelblue;
+}
