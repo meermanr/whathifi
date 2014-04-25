@@ -320,10 +320,13 @@ function whizzy_table(){
 
     // Configuration
     var c = {};
-    c.width = 900;
-    c.item_height = 24;
-    c.headings = function(d,i){return d.headings;};
-    c.values = function(d,i){return d.values;};
+    c.width = 1200;
+    c.margin_top = 200;
+    c.row_title_width = 160;
+    c.item_height = 14;
+    c.key = function(d,i){return d.key;};           // Row heading
+    c.headings = function(d,i){return d.headings;}; // Table headings
+    c.values = function(d,i){return d.values;};     // Row data
 
     // Chart functionality
     function my(d3OuterSelection){
@@ -333,8 +336,8 @@ function whizzy_table(){
             // `this`: (DOMElement) Element to render chart within, e.g. svg
 
             // Prepare data
-            var sHeadings = d3.set();
-            var dValues = {};   // rHeading -> d3.set() of seen values
+            console.groupCollapsed('Prepare data');
+            var dDataByHeading = {};   // rHeading -> d3.set() of seen values (CONVERTED TO STRING!)
             for (var i=0; i<d.length; i++){
                 var dItem = d[i];
                 var lDataHeadings = c.headings(dItem,i);
@@ -343,27 +346,195 @@ function whizzy_table(){
                 {
                     var rHeading = lDataHeadings[j];
                     var mValue = lDataValues[j];
-                    sHeadings.add(rHeading);
-                    if (dValues[rHeading] === undefined){dValues[rHeading] = d3.set();}
-                    dValues[rHeading].add(mValue);
+                    if (dDataByHeading[rHeading] === undefined){dDataByHeading[rHeading] = d3.set();}
+                    dDataByHeading[rHeading].add(mValue);
                 }
             }
-            console.log(sHeadings.values().sort(), dValues);
+
+            function isNumber(x){
+                try{
+                    return !isNaN(parseFloat(x));
+                }catch(e){
+                    return false;
+                }
+            }
+            function isBoolean(x){
+                switch(x){
+                    case 0:  return true; break;
+                    case 1:  return true; break;
+                    default: return false;
+                }
+            }
+            function convert_to_number(x){
+                switch(x){
+                    case "false":   x=0; break;
+                    case false:     x=0; break;
+                    case "n/a":     x=0; break;
+                    case "No":      x=0; break;
+                    case "true":    x=1; break;
+                    case true:      x=1; break;
+                    case "Yes":     x=1; break;
+                }
+                try{
+                    if( !isNaN(+x) ){return parseFloat(x);}
+                    else { return x; }
+                }catch(e){
+                    return x;
+                }
+            }
+
+            function boolean(d,i){
+                // `this`: (DOMElement) Element to render chart within, e.g.  svg
+                // `d`: (Object) Input data
+                // `i`: (int) Index within the outer selection
+                var iValue = convert_to_number(d);
+                if(iValue==1){
+                    d3.select(this).append('circle')
+                        .classed('boolean', true)
+                        .attr('cy', -c.item_height/2)
+                        .attr('r', c.item_height/3)
+                        ;
+                }
+            }
+            function numeric(d,i){
+                // `this`: (DOMElement) Element to render chart within, e.g.  svg
+                // `d`: (Object) Input data
+                // `i`: (int) Index within the outer selection
+                var iValue = convert_to_number(d);
+                return iValue;
+            }
+            function string(d,i){
+                // `this`: (DOMElement) Element to render chart within, e.g.  svg
+                // `d`: (Object) Input data
+                // `i`: (int) Index within the outer selection
+                return '';
+            }
+
+            var dRendererByHeading = {};    // rHeading -> fncChart
+
+            // Categorise each heading
+            for (var k in dDataByHeading){
+                var lData = dDataByHeading[k].values();
+                lData = lData.map(convert_to_number);
+
+                // Remove duplicates
+                lData = lData.sort();
+                var lDistinctData = [];
+                for (var i=0; i<lData.length; i++){
+                    if (i==0){lDistinctData.push(lData[i]); continue;}
+                    if (lData[i]==lData[i-1]){continue;}
+                    lDistinctData.push(lData[i]);
+                }
+
+                lData = lDistinctData;
+
+                if (lData.every(isNumber)){
+                    if (lData.every(isBoolean)){
+                        dRendererByHeading[k] = boolean;
+                    } else {
+                        dRendererByHeading[k] = numeric;
+                    }
+                }else{
+                    dRendererByHeading[k] = string;
+                }
+            }
+
+            var iComputedHeight = c.item_height * d.length;
+            console.groupEnd();
+
 
             var d3SVG = d3.select(this).select('svg.whizzy_table');
 
             // Create if necessary
             if (d3SVG.empty()){
-                d3SVG = d3.select(this).append('svg:svg')
-                    .classed('whizzy_table', true)
+                d3SVG = d3.select(this).append('svg:svg') .classed('whizzy_table', true) ;
+                d3SVG.append('g')
+                    .attr('transform', 'translate(0, '+c.margin_top+')')
+                    .classed('content', true)
+                .append('g')
+                    .classed('heading', true)
                     ;
             }
 
-            console.log(d);
+            // Update existing
             d3SVG
                 .attr('width', c.width)
-                .attr('height', d.length*c.item_height)
+                .attr('height', c.margin_top + iComputedHeight)
                 ;
+
+            d3SVG = d3.select(this).select('g.content');      // Shift focus to translated group
+
+            var sScaleX = d3.scale.ordinal()    // NB: Does *NOT* handle row titles (left edge headings)
+                .domain(d3.keys(dDataByHeading).sort())
+                .rangeBands([c.row_title_width, c.width])
+                ;
+
+            d3SVG.select('g.heading').selectAll('g.th')
+                .data(d3.keys(dDataByHeading).sort())
+            .enter().append('g')
+                .classed('th', true)
+                .attr('transform', function(d,i){return 'translate('+sScaleX(d,i)+',0)';})
+                .each(function(d,i){
+                        d3.select(this).append('rect')
+                            .classed('tc', true)
+                            .attr('x', 0)
+                            .attr('y', 0)
+                            .attr('width', sScaleX.rangeBand())
+                            .attr('height', iComputedHeight)
+                            ;
+                        d3.select(this).append('text')
+                            .attr('transform', 'translate('+sScaleX.rangeBand()/2+',0) rotate(-45)')
+                            .text(function(d){return d;})
+                            ;
+                    })
+                    ;
+
+            var sScaleY = d3.scale.linear()
+                .domain([0, d.length-1])
+                .range([c.item_height, iComputedHeight])
+                ;
+
+            var d3Rows = d3SVG.selectAll('g.tr')
+                .data(d, c.key)
+                ;
+
+            d3Rows.enter().append('g')
+                .classed('tr', true)
+                .attr('transform', function(d,i){return 'translate(0,'+sScaleY(i)+')';})
+                .each(function(d,i){
+                        // Background
+                        d3.select(this).append('rect')
+                            .classed('tr', true)
+                            .attr('x', 0)
+                            .attr('y', -c.item_height)
+                            .attr('width', c.width)
+                            .attr('height', c.item_height)
+                            ;
+
+                        // Row title (left edge)
+                        d3.select(this).append('text').text(d.name);
+
+                        // Data
+                        var lHeadings = c.headings(d);
+                        var lValues = c.values(d);
+                        var lData = d3.zip(lHeadings, lValues);
+                        var d3Row = d3.select(this).selectAll('text.data')
+                            .data(lData, function(d,i){return d[0];})
+                            ;
+
+                        d3Row.enter().append('g')
+                            .classed('data', true)
+                            .attr('transform', function(d,i){
+                                    var x = sScaleX(d[0]) + (sScaleX.rangeBand()/2);
+                                    return 'translate('+x+',0)';
+                                })
+                            .each(function(d,i){
+                                    return dRendererByHeading[d[0]].call(this, d[1], i);
+                                })
+                            ;
+                    })
+                ;
+
 
         });
     }
@@ -454,21 +625,22 @@ function init(sJSONData){
     d3.select('#rating_max')      .on('change', function(){s.iRatingMax=parseInt(this.value); update();});
 
     s.sWhizzyTable = whizzy_table()
+        .key(function(d,i){ return d.name; })
         .headings(function(d,i){
                 var lHeadings = [];
                 lHeadings.push('Name', 'Price', 'Rating');
                 lHeadings = d3.merge([lHeadings, d3.keys(d.spec)]);
-                console.log(lHeadings);
                 return lHeadings;
             })
         .values(function(d,i){
             var lValues = [];
             lValues.push(d.name, d.price, d.rating);
             lValues = d3.merge([lValues, d3.values(d.spec)]);
-            console.log(lValues);
             return lValues;
             })
         ;
+    s.lData.sort(function(a,b){return d3.ascending(a.name, b.name);});
+    s.lData = s.lData.slice(0,3);   // XXX
     s.d3SelWhizzy = d3.select('p#whizzy_table')
         .datum(s.lData)
         .call(s.sWhizzyTable)

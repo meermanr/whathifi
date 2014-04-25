@@ -1,3 +1,6 @@
+/*********************************************************
+ * PUNCHCARD CHART
+ */
 svg.punchcard_chart {
     float: right;
     padding: 10px;  /* Space for shadows etc */
@@ -62,4 +65,55 @@ svg.punchcard_chart g.y_axis g.tick text {
 
 ul#hover_details {
     float: left;
+}
+
+/*********************************************************
+ * WHIZZY TABLE
+ */
+svg.whizzy_table {
+    padding-right: 50px;    /* Allow for slanted headings which extend past the edge */
+}
+g.heading text {
+    fill: black;
+    stroke: none;
+    font-family: sans-serif;
+    font-size: 12px;
+}
+g.th.selected rect.tc {
+    fill: red;
+}
+rect.tc {
+    stroke: none;
+    fill: none;;
+}
+g.tr rect {
+    opacity: 0.5;
+}
+g.tr:nth-of-type(even) rect {
+    fill: rgb(248, 248, 248);
+}
+g.tr:nth-of-type(odd) rect {
+    fill: rgb(241, 241, 241);
+}
+g.tr text {
+    fill: black;
+    stroke: none;
+    font-family: sans-serif;
+    font-size: 12px;
+    text-anchor: start;
+    baseline-shift: 3px;
+}
+
+g.tr g.data text {
+    fill: blue;
+    stroke: none;
+    font-family: sans-serif;
+    font-size: 12px;
+    text-anchor: middle;
+    baseline-shift: 3px;
+}
+
+g.data circle.boolean {
+    stroke: none;
+    fill: rgb(125, 180, 48);
 }
