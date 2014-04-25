@@ -388,45 +388,6 @@ function whizzy_table(){
     return my;
 }
 
-function quantize_articles(lArticles, iPriceToNearest){
-    /*
-     * Want to plot star-rating (Y) against price (X) and display the number of 
-     * articles matching each grid location (D). The raw data is not suited to 
-     * this because it has not yet been summarised, so there is no count value 
-     * (D) to plot, and the possible X,Y coordinates form a surface rather than 
-     * a regular grid.
-     * 
-     * We need to quantise the rating and price data such that we end up with a 
-     * grid of possible X,Y coordinates (rather than a surface). This will 
-     * result in multiple articles being represented by a single grid point, so 
-     * the count (D) should be the summation of all articles.
-     */
-    var dData = {};     // dData[x][y] = [d, [sArticle1, sArticle2]];
-    if (iPriceToNearest === undefined){iPriceToNearest = 500;}
-    for (var i in lArticles){
-        var dArticle = lArticles[i];
-        var fPrice = Math.ceil(dArticle.price/iPriceToNearest)*iPriceToNearest;
-        var fRating = dArticle.rating;
-        if (dData[fPrice] === undefined){dData[fPrice] = {};}
-        if (dData[fPrice][fRating] === undefined){dData[fPrice][fRating] = [0, []];}
-        dData[fPrice][fRating][0] += 1;
-        dData[fPrice][fRating][1].push(dArticle);
-    }
-    // NB: Object keys in ECMAScript are *always* converted to string type. So 
-    // we must convert back to numbers. Cf.  
-    // http://stackoverflow.com/q/3633362/83100
-    var lData = [];
-    for (var x in dData){
-        x = parseInt(x);
-        for (var y in dData[x]){
-            y = parseInt(y);
-            var d = {'x':x, 'y':y, 'd':dData[x][y][0], 'articles':dData[x][y][1]};
-            lData.push(d);
-        }
-    }
-    return lData;
-}
-
 function init(sJSONData){
     window.sJSONData = sJSONData;
 
@@ -445,13 +406,10 @@ function init(sJSONData){
                     .x(function(d){return parseInt(d.key.split(',')[0]);})
                     .y(function(d){return parseInt(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
-                    .x_label('Price')
-                    .y_label('Rating')
-                    .x_tick_format(d3locale.numberFormat('$,'))
+                    .x_label('Price (£GBP)')
+                    .y_label('Rating (%)')
+                    .x_tick_format(d3locale.numberFormat(','))
                     .y_tick_format(d3locale.numberFormat(',.g'))
-                    .d_tick_format(function(v,d){
-                            return d.values.map(function(d){return d.name;}).sort().join('\n');
-                        })
                     .mouseover(function(d,i){
                             var lData = d.values.map(function(d){return d.name;}).sort();
                             var s = d3.select('ul#hover_details').selectAll('li')
