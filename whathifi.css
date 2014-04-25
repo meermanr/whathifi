@@ -7,8 +7,11 @@ svg.punchcard_chart g.bubble circle {
     stroke: black;
     fill: steelblue;
 }
+svg.punchcard_chart g.bubble.new circle {
+    /* filter: url(#filter1); */
+}
 svg.punchcard_chart g.bubble circle:hover {
-    filter: url(#filter1);
+    fill: orange;
 }
 
 /* X-axis */
@@ -31,6 +34,7 @@ svg.punchcard_chart g.x_axis text.label {
 svg.punchcard_chart g.x_axis g.tick text {
     stroke: none;
     fill: black;
+    font-size: smaller;
 }
 
 /* Y-axis */
@@ -53,6 +57,7 @@ svg.punchcard_chart g.y_axis text.label {
 svg.punchcard_chart g.y_axis g.tick text {
     stroke: none;
     fill: black;
+    font-size: smaller;
 }
 
 ul#hover_details {

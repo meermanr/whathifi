@@ -76,7 +76,6 @@ function punchcard_chart(){
             .call(myChart)
             ;
     */
-    "use strict";
 
     // CONFIGURATION
     /////////////////////////////
@@ -233,7 +232,9 @@ function punchcard_chart(){
                     ;
 
                 // Update (resize chart)
-                d3Selection.selectAll('circle').transition()
+                d3Selection.select('circle')
+                    .datum(function(d){return d;})
+                .transition()
                     .attr('r', extract_data_d_and_scale)
                     .attr('cx', extract_data_x_and_scale)
                     .attr('cy', extract_data_y_and_scale)
@@ -296,6 +297,78 @@ function punchcard_chart(){
 
     return my;
 }
+
+function whizzy_table(){
+    /* Create a table using SVG shapes such that additions / removals can be 
+     * nicely animated.
+     *
+     * Resulting document structure:
+     *
+     *   g.tr
+     *      g.th
+     *        text
+     *      g.th
+     *        text
+     *      ...
+     *   g.tr
+     *     g.td
+     *        circle    // e.g. color swatch
+     *     g.td
+     *        text      // e.g. number
+     *     ...
+     */
+
+    // Configuration
+    var c = {};
+    c.width = 900;
+    c.item_height = 24;
+
+    // Chart functionality
+    function my(d3OuterSelection){
+        d3OuterSelection.each(function whizzy_table_inner(d, i){
+            // `d`: (Object) Input data
+            // `i`: (int) Index within the outer selection
+            // `this`: (DOMElement) Element to render chart within, e.g. svg
+
+            var d3SVG = d3.select(this).select('svg.whizzy_table');
+
+            // Create if necessary
+            if (d3SVG.empty()){
+                d3SVG = d3.select(this).append('svg:svg')
+                    .classed('whizzy_table', true)
+                    ;
+            }
+
+            // Update
+            var d3Transition = d3SVG.transition()
+                .duration(750)
+                .ease('bounce')
+                .attr('width', c.width)
+                .attr('height', c.item_height * d.length)
+                ;
+        });
+    }
+
+    // Getters + Setters
+    //
+    // For every key in our configuration (`c`) we generate a function which 
+    // either returns the current configuration value, or sets it to the 
+    // user-provided value.
+
+    for (var rAttr in c){
+        var rCode = ''
+            +'my.'+rAttr+' = function(mValue){'
+            +'\n  if(!arguments.length){return c.'+rAttr+';}'
+            +'\n  c.'+rAttr+' = mValue;'
+            +'\n  return my;'
+            +'\n}'
+            +'\n';
+        eval(rCode);
+    }
+
+    return my;
+}
+
 function quantize_articles(lArticles, iPriceToNearest){
     /*
      * Want to plot star-rating (Y) against price (X) and display the number of 
@@ -336,15 +409,20 @@ function quantize_articles(lArticles, iPriceToNearest){
 }
 
 function init(sJSONData){
-    "use strict";
-
     window.sJSONData = sJSONData;
 
     d3.select('#review_count').text(sJSONData.total_rows);
 
-    var myChart = punchcard_chart()
-                    .width(700)
-                    .height(200)
+    var s = {}; // State
+    s.iPriceToNearest = d3.select('#price_to_nearest')[0][0].value;
+    s.iRatingMin = d3.select('#rating_min')[0][0].value;
+    s.iRatingMax = d3.select('#rating_max')[0][0].value;
+    s.iPriceMin = d3.select('#price_min')[0][0].value;
+    s.iPriceMax = d3.select('#price_max')[0][0].value;
+
+    s.sPunchcardChart = punchcard_chart()
+                    .width(500)
+                    .height(140)
                     .x_label('Price')
                     .y_label('Rating')
                     .x_tick_format(d3locale.numberFormat('$,'))
@@ -363,34 +441,48 @@ function init(sJSONData){
                         })
                     ;
 
-    var iPriceToNearest = d3.select('#price_to_nearest')[0][0].value;
-    var iRatingMin = d3.select('#rating_min')[0][0].value;
-    var iRatingMax = d3.select('#rating_max')[0][0].value;
-    var iPriceMin = d3.select('#price_min')[0][0].value;
-    var iPriceMax = d3.select('#price_max')[0][0].value;
-
-    var d3Selection = d3.select('p#punchcard_chart');
+    s.d3SelPunch = d3.select('p#punchcard_chart');
+    s.lData = [];
 
     function update(){
-        var lData = sJSONData.rows;
-        lData = lData.filter(function(d){
-            return (d.price <= iPriceMax
-                && d.price >= iPriceMin
-                && d.rating <= iRatingMax
-                && d.rating >= iRatingMin
+        s.lData = sJSONData.rows;
+        s.lData = s.lData.filter(function(d){
+            return (d.price <= s.iPriceMax
+                && d.price  >= s.iPriceMin
+                && d.rating <= s.iRatingMax
+                && d.rating >= s.iRatingMin
                 );
             });
-        lData = quantize_articles(lData, iPriceToNearest);
-        d3Selection
-            .datum(lData)   // NB: datum(), not data()!
-            .call(myChart)
+        s.lData = quantize_articles(s.lData, s.iPriceToNearest);
+        s.d3SelPunch
+            .datum(s.lData)   // NB: datum(), not data()!
+            .call(s.sPunchcardChart)
             ;
     }
     update();
 
-    d3.select('#price_to_nearest').on('change', function(){iPriceToNearest=parseInt(this.value); update();});
-    d3.select('#price_min').on('change', function(){iPriceMin=parseInt(this.value); update();});
-    d3.select('#price_max').on('change', function(){iPriceMax=parseInt(this.value); update();});
-    d3.select('#rating_min').on('change', function(){iRatingMin=parseInt(this.value); update();});
-    d3.select('#rating_max').on('change', function(){iRatingMax=parseInt(this.value); update();});
+    d3.select('#price_to_nearest').on('change', function(){s.iPriceToNearest=parseInt(this.value); update();});
+    d3.select('#price_min')       .on('change', function(){s.iPriceMin=parseInt(this.value); update();});
+    d3.select('#price_max')       .on('change', function(){s.iPriceMax=parseInt(this.value); update();});
+    d3.select('#rating_min')      .on('change', function(){s.iRatingMin=parseInt(this.value); update();});
+    d3.select('#rating_max')      .on('change', function(){s.iRatingMax=parseInt(this.value); update();});
+
+    // window.setTimeout(function(){s.iPriceToNearest=250; s.iPriceMax=7000; 
+    //s.iRatingMin=80; update();}, 1000);
+
+    var sSpec = d3.set();
+    for(var i=0; i<sJSONData.rows.length; i+=1){
+        for(var rSpec in sJSONData.rows[i].spec){
+            sSpec.add(rSpec);
+        }
+    }
+    var lSpec = sSpec.values().sort();
+
+    s.sWhizzyTable = whizzy_table()
+        ;
+    s.d3SelWhizzy = d3.select('p.whizzy_table')
+        .data(s.lData)
+        .call(s.sWhizzyTable)
+        ;
+    console.log(lSpec);
 }
