@@ -97,6 +97,7 @@ function punchcard_chart(){
     c.d_tick_format = function(v,d){return v.toString();}
     c.x_label = '';
     c.y_label = '';
+    c.mouseover = function(d,i){console.log(this,d,i);};
 
     // Passed as the second argument (`key`) to to d3.selection.data
     c.key    = function(d,i){return ''+c.x(d,i)+','+c.y(d,i);};
@@ -151,22 +152,22 @@ function punchcard_chart(){
                 }
 
                 var lXDomainValues = d3.set(d.map(c.x)).values().map(returnInt);
-                var iXDomainSpacing = min_gap(lXDomainValues)
-                var rx = c.width / (lXDomainValues.length+1) / 2;
+                var iXDomainSpacing = min_gap(lXDomainValues) || 0;
+                var rx = c.width / (lXDomainValues.length) / 2;
                 var scale_x = d3.scale.linear()
                     .domain(d3.extent(d, c.x))
                     .range([rx, c.width-rx])
                     ;
-                var iXRangeSpacing = (scale_x(iXDomainSpacing) - scale_x(0))/2;
+                var iXRangeSpacing = (scale_x(iXDomainSpacing) - scale_x(0))/2 || c.width/2;
 
                 var lYDomainValues = d3.set(d.map(c.y)).values().map(returnInt);
-                var iYDomainSpacing = min_gap(lYDomainValues);
-                var ry = c.height / (lYDomainValues.length+1) / 2;
+                var iYDomainSpacing = min_gap(lYDomainValues) || 0;
+                var ry = c.height / (lYDomainValues.length) / 2;
                 var scale_y = d3.scale.linear()
                     .domain(d3.extent(d, c.y))
                     .range([c.height-ry, ry])   // SVG y-axis goes top-to-bottom
                     ;
-                var iYRangeSpacing = Math.abs((scale_y(iYDomainSpacing) - scale_y(0))/2);
+                var iYRangeSpacing = Math.abs((scale_y(iYDomainSpacing) - scale_y(0))/2) || c.height/2;
 
                 var iMinRangeSpacing = Math.min(iXRangeSpacing, iYRangeSpacing);
                 var scale_d = d3.scale.sqrt()
@@ -260,9 +261,7 @@ function punchcard_chart(){
                     .each(function(d,i){
                             var rTitle = c.d_tick_format(c.d(d), d);
                             d3.select(this)
-                                .on('mouseover', function(d,i){
-                                        console.log(d.articles, this);
-                                    })
+                                .on('mouseover', c.mouseover)
                             .select('title')
                                 .text(rTitle)
                                 ;
@@ -353,9 +352,20 @@ function init(sJSONData){
                     .d_tick_format(function(v,d){
                             return d.articles.map(function(d){return d.name;}).sort().join('\n');
                         })
+                    .mouseover(function(d,i){
+                            var lData = d.articles.map(function(d){return d.name;}).sort();
+                            var s = d3.select('ul#hover_details').selectAll('li')
+                                .data(lData, function(d){return d;})
+                            s.enter().append('li')
+                                .text(function(d,i){return d;})
+                                ;
+                            s.exit().remove();
+                        })
                     ;
 
     var iPriceToNearest = d3.select('#price_to_nearest')[0][0].value;
+    var iRatingMin = d3.select('#rating_min')[0][0].value;
+    var iRatingMax = d3.select('#rating_max')[0][0].value;
     var iPriceMin = d3.select('#price_min')[0][0].value;
     var iPriceMax = d3.select('#price_max')[0][0].value;
 
@@ -363,7 +373,13 @@ function init(sJSONData){
 
     function update(){
         var lData = sJSONData.rows;
-        lData = lData.filter(function(d){ return d.price <= iPriceMax && d.price >= iPriceMin; });
+        lData = lData.filter(function(d){
+            return (d.price <= iPriceMax
+                && d.price >= iPriceMin
+                && d.rating <= iRatingMax
+                && d.rating >= iRatingMin
+                );
+            });
         lData = quantize_articles(lData, iPriceToNearest);
         d3Selection
             .datum(lData)   // NB: datum(), not data()!
@@ -375,4 +391,6 @@ function init(sJSONData){
     d3.select('#price_to_nearest').on('change', function(){iPriceToNearest=parseInt(this.value); update();});
     d3.select('#price_min').on('change', function(){iPriceMin=parseInt(this.value); update();});
     d3.select('#price_max').on('change', function(){iPriceMax=parseInt(this.value); update();});
+    d3.select('#rating_min').on('change', function(){iRatingMin=parseInt(this.value); update();});
+    d3.select('#rating_max').on('change', function(){iRatingMax=parseInt(this.value); update();});
 }

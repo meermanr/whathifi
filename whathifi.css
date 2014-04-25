@@ -1,4 +1,5 @@
-svg {
+svg.punchcard_chart {
+    float: right;
     padding: 10px;  /* Space for shadows etc */
 }
 
@@ -52,4 +53,8 @@ svg.punchcard_chart g.y_axis text.label {
 svg.punchcard_chart g.y_axis g.tick text {
     stroke: none;
     fill: black;
+}
+
+ul#hover_details {
+    float: left;
 }
