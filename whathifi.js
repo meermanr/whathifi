@@ -322,6 +322,8 @@ function whizzy_table(){
     var c = {};
     c.width = 900;
     c.item_height = 24;
+    c.headings = function(d,i){return d.headings;};
+    c.values = function(d,i){return d.values;};
 
     // Chart functionality
     function my(d3OuterSelection){
@@ -329,6 +331,24 @@ function whizzy_table(){
             // `d`: (Object) Input data
             // `i`: (int) Index within the outer selection
             // `this`: (DOMElement) Element to render chart within, e.g. svg
+
+            // Prepare data
+            var sHeadings = d3.set();
+            var dValues = {};   // rHeading -> d3.set() of seen values
+            for (var i=0; i<d.length; i++){
+                var dItem = d[i];
+                var lDataHeadings = c.headings(dItem,i);
+                var lDataValues = c.values(dItem,i);
+                for (var j=0; j<lDataHeadings.length; j++)
+                {
+                    var rHeading = lDataHeadings[j];
+                    var mValue = lDataValues[j];
+                    sHeadings.add(rHeading);
+                    if (dValues[rHeading] === undefined){dValues[rHeading] = d3.set();}
+                    dValues[rHeading].add(mValue);
+                }
+            }
+            console.log(sHeadings.values().sort(), dValues);
 
             var d3SVG = d3.select(this).select('svg.whizzy_table');
 
@@ -339,13 +359,12 @@ function whizzy_table(){
                     ;
             }
 
-            // Update
-            var d3Transition = d3SVG.transition()
-                .duration(750)
-                .ease('bounce')
+            console.log(d);
+            d3SVG
                 .attr('width', c.width)
-                .attr('height', c.item_height * d.length)
+                .attr('height', d.length*c.item_height)
                 ;
+
         });
     }
 
@@ -423,15 +442,18 @@ function init(sJSONData){
     s.sPunchcardChart = punchcard_chart()
                     .width(500)
                     .height(140)
+                    .x(function(d){return parseInt(d.key.split(',')[0]);})
+                    .y(function(d){return parseInt(d.key.split(',')[1]);})
+                    .d(function(d){return d.values.length;})
                     .x_label('Price')
                     .y_label('Rating')
                     .x_tick_format(d3locale.numberFormat('$,'))
                     .y_tick_format(d3locale.numberFormat(',.g'))
                     .d_tick_format(function(v,d){
-                            return d.articles.map(function(d){return d.name;}).sort().join('\n');
+                            return d.values.map(function(d){return d.name;}).sort().join('\n');
                         })
                     .mouseover(function(d,i){
-                            var lData = d.articles.map(function(d){return d.name;}).sort();
+                            var lData = d.values.map(function(d){return d.name;}).sort();
                             var s = d3.select('ul#hover_details').selectAll('li')
                                 .data(lData, function(d){return d;})
                             s.enter().append('li')
@@ -443,6 +465,7 @@ function init(sJSONData){
 
     s.d3SelPunch = d3.select('p#punchcard_chart');
     s.lData = [];
+    s.lSummaryData = [];
 
     function update(){
         s.lData = sJSONData.rows;
@@ -453,9 +476,14 @@ function init(sJSONData){
                 && d.rating >= s.iRatingMin
                 );
             });
-        s.lData = quantize_articles(s.lData, s.iPriceToNearest);
+
+        s.lSummaryData = d3.nest().key(function(d){
+                var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
+                return [iPrice, d.rating];
+            }).entries(s.lData);
+
         s.d3SelPunch
-            .datum(s.lData)   // NB: datum(), not data()!
+            .datum(s.lSummaryData)   // NB: datum(), not data()!
             .call(s.sPunchcardChart)
             ;
     }
@@ -467,22 +495,24 @@ function init(sJSONData){
     d3.select('#rating_min')      .on('change', function(){s.iRatingMin=parseInt(this.value); update();});
     d3.select('#rating_max')      .on('change', function(){s.iRatingMax=parseInt(this.value); update();});
 
-    // window.setTimeout(function(){s.iPriceToNearest=250; s.iPriceMax=7000; 
-    //s.iRatingMin=80; update();}, 1000);
-
-    var sSpec = d3.set();
-    for(var i=0; i<sJSONData.rows.length; i+=1){
-        for(var rSpec in sJSONData.rows[i].spec){
-            sSpec.add(rSpec);
-        }
-    }
-    var lSpec = sSpec.values().sort();
-
     s.sWhizzyTable = whizzy_table()
+        .headings(function(d,i){
+                var lHeadings = [];
+                lHeadings.push('Name', 'Price', 'Rating');
+                lHeadings = d3.merge([lHeadings, d3.keys(d.spec)]);
+                console.log(lHeadings);
+                return lHeadings;
+            })
+        .values(function(d,i){
+            var lValues = [];
+            lValues.push(d.name, d.price, d.rating);
+            lValues = d3.merge([lValues, d3.values(d.spec)]);
+            console.log(lValues);
+            return lValues;
+            })
         ;
-    s.d3SelWhizzy = d3.select('p.whizzy_table')
-        .data(s.lData)
+    s.d3SelWhizzy = d3.select('p#whizzy_table')
+        .datum(s.lData)
         .call(s.sWhizzyTable)
         ;
-    console.log(lSpec);
 }
