@@ -92,14 +92,14 @@ function punchcard_chart(){
     c.x      = function(d,i){return d.x;};
     c.y      = function(d,i){return d.y;};
     c.d      = function(d,i){return d.d;};
-    c.x_tick_format = function(d){return d.toString();}
-    c.y_tick_format = function(d){return d.toString();}
-    c.d_tick_format = function(d){return d.toString();}
+    c.x_tick_format = function(v){return d.toString();}     // v = c.x(d)
+    c.y_tick_format = function(v){return d.toString();}
+    c.d_tick_format = function(v,d){return v.toString();}
     c.x_label = '';
     c.y_label = '';
 
     // Passed as the second argument (`key`) to to d3.selection.data
-    c.key    = function(d,i){return ''+c.x(d,i)+c.y(d,i);};
+    c.key    = function(d,i){return ''+c.x(d,i)+','+c.y(d,i);};
 
     // CHART
     /////////////////////////////
@@ -120,7 +120,7 @@ function punchcard_chart(){
             }
             // Update
             var d3Transition = d3SVG.transition()
-                .duration(1000)
+                .duration(750)
                 .ease('bounce')
                 .attr('viewBox',  ' -'+c.left_margin
                                  +' '+0
@@ -231,33 +231,43 @@ function punchcard_chart(){
                     .classed('new', false)
                     ;
 
+                // Update (resize chart)
+                d3Selection.selectAll('circle').transition()
+                    .attr('r', extract_data_d_and_scale)
+                    .attr('cx', extract_data_x_and_scale)
+                    .attr('cy', extract_data_y_and_scale)
+                    ;
+
                 // Enter
                 d3Selection.enter().append('g')
                     .classed('new', true)
                     .classed('bubble', true)
-                    .each(function enter_g_title(d,i){
-                            d3.select(this)
-                                .append('title')
-                                .text(c.d_tick_format(c.d(d)));
-                        })
-                    .each(function enter_g_circle(d,i){
+                    .each(function(d,i){
+                            d3.select(this).append('title');
                             d3.select(this).append('circle')
                                 .classed('bubble', true)
-                                .attr('r', 0)   // Will be animated to extract_data_d_and_scale()
                                 .attr('cx', extract_data_x_and_scale)
                                 .attr('cy', extract_data_y_and_scale)
+                                .attr('r', 0)
+                            .transition()
+                                .attr('r', extract_data_d_and_scale)
                                 ;
                         })
                     ;
 
-                // Update
-                d3Selection.selectAll('circle').transition()
-                    .attr('r', extract_data_d_and_scale)
-                    ;
-                d3Selection.selectAll('circle').transition()
-                    .attr('cx', extract_data_x_and_scale)
-                    .attr('cy', extract_data_y_and_scale)
-                    ;
+                // Update (metadata)
+                d3Selection
+                    .each(function(d,i){
+                            var rTitle = c.d_tick_format(c.d(d), d);
+                            d3.select(this)
+                                .on('mouseover', function(d,i){
+                                        console.log(d.articles, this);
+                                    })
+                            .select('title')
+                                .text(rTitle)
+                                ;
+                        })
+
 
                 // Exit
                 d3Selection.exit().transition()
@@ -300,15 +310,16 @@ function quantize_articles(lArticles, iPriceToNearest){
      * result in multiple articles being represented by a single grid point, so 
      * the count (D) should be the summation of all articles.
      */
-    var dData = {};     // dData[x][y] = d;
+    var dData = {};     // dData[x][y] = [d, [sArticle1, sArticle2]];
     if (iPriceToNearest === undefined){iPriceToNearest = 500;}
     for (var i in lArticles){
         var dArticle = lArticles[i];
         var fPrice = Math.ceil(dArticle.price/iPriceToNearest)*iPriceToNearest;
         var fRating = dArticle.rating;
         if (dData[fPrice] === undefined){dData[fPrice] = {};}
-        if (dData[fPrice][fRating] === undefined){dData[fPrice][fRating] = 0;}
-        dData[fPrice][fRating] += 1;
+        if (dData[fPrice][fRating] === undefined){dData[fPrice][fRating] = [0, []];}
+        dData[fPrice][fRating][0] += 1;
+        dData[fPrice][fRating][1].push(dArticle);
     }
     // NB: Object keys in ECMAScript are *always* converted to string type. So 
     // we must convert back to numbers. Cf.  
@@ -318,7 +329,7 @@ function quantize_articles(lArticles, iPriceToNearest){
         x = parseInt(x);
         for (var y in dData[x]){
             y = parseInt(y);
-            var d = {'x':x, 'y':y, 'd':dData[x][y]};
+            var d = {'x':x, 'y':y, 'd':dData[x][y][0], 'articles':dData[x][y][1]};
             lData.push(d);
         }
     }
@@ -332,21 +343,36 @@ function init(sJSONData){
 
     d3.select('#review_count').text(sJSONData.total_rows);
 
-    var lData = quantize_articles(sJSONData.rows, 500);
     var myChart = punchcard_chart()
                     .width(900)
                     .height(200)
-                    .x_tick_format(d3locale.numberFormat('$,'))
-                    .y_tick_format(d3locale.numberFormat(',.g'))
                     .x_label('Price')
                     .y_label('Rating')
+                    .x_tick_format(d3locale.numberFormat('$,'))
+                    .y_tick_format(d3locale.numberFormat(',.g'))
+                    .d_tick_format(function(v,d){
+                            return d.articles.map(function(d){return d.name;}).sort().join('\n');
+                        })
                     ;
 
-    window.lData = lData;
-    window.myChart = myChart;
-    window.d3Selection = d3.select('p#punchcard_chart')
-        .datum(lData)       // NB: datum(), not data()
-        .call(myChart)
-        ;
+    var iPriceToNearest = d3.select('#price_to_nearest')[0][0].value;
+    var iPriceMin = d3.select('#price_min')[0][0].value;
+    var iPriceMax = d3.select('#price_max')[0][0].value;
 
+    var d3Selection = d3.select('p#punchcard_chart');
+
+    function update(){
+        var lData = sJSONData.rows;
+        lData = lData.filter(function(d){ return d.price <= iPriceMax && d.price >= iPriceMin; });
+        lData = quantize_articles(lData, iPriceToNearest);
+        d3Selection
+            .datum(lData)   // NB: datum(), not data()!
+            .call(myChart)
+            ;
+    }
+    update();
+
+    d3.select('#price_to_nearest').on('change', function(){iPriceToNearest=parseInt(this.value); update();});
+    d3.select('#price_min').on('change', function(){iPriceMin=parseInt(this.value); update();});
+    d3.select('#price_max').on('change', function(){iPriceMax=parseInt(this.value); update();});
 }

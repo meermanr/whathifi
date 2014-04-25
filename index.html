@@ -26,6 +26,11 @@
         <p>Punchcard Chart of AV receiver ratings (y-axis) versus price in £GBP 
         (x-axis). Bubble size represent number of reviews which fall into the 
         category.</p>
+        <p>
+        <label>Round price to nearest: <input id='price_to_nearest' value='500'/></label>
+        <label>Min price: <input id='price_min' value='0'/></label>
+        <label>Max price: <input id='price_max' value='99000'/></label>
+        </p>
         <p id='punchcard_chart'></p>
 
         <!-- Load this last. It will invoke whathifi.js::init() with a data 
