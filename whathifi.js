@@ -343,7 +343,7 @@ function init(sJSONData){
     d3.select('#review_count').text(sJSONData.total_rows);
 
     var myChart = punchcard_chart()
-                    .width(900)
+                    .width(700)
                     .height(200)
                     .x_label('Price')
                     .y_label('Rating')
