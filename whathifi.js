@@ -387,7 +387,6 @@ function whizzy_table(){
     c.dRendererByHeading;
     c.yInitialised = false;     // Set to true when chart is first rendered
 
-
     // Chart functionality
     function my(d3OuterSelection){
         d3OuterSelection.each(function whizzy_table_inner(d, i){
@@ -395,13 +394,8 @@ function whizzy_table(){
             // `i`: (int) Index within the outer selection
             // `this`: (DOMElement) Element to render chart within, e.g. svg
 
-            console.group('Whizzy Table');
-            console.time('Total');
-
             // Prepare data
-            console.time('Prepare data');
             if (!c.yInitialised){
-                console.log('Init c.dDataByHeading');
                 c.dDataByHeading = {};   // rHeading -> d3.set() of seen values (CONVERTED TO STRING!)
                 for (var i=0; i<d.length; i++){
                     var dItem = d[i];
@@ -463,7 +457,6 @@ function whizzy_table(){
 
 
             if (!c.yInitialised){
-                console.log('Init c.dScaleByHeading');
                 c.dScaleByHeading = {};    // rHeading -> d3.scale.linear() which outputs color
                 c.dRendererByHeading = {};    // rHeading -> fncChart
                 // Categorise each heading
@@ -498,7 +491,6 @@ function whizzy_table(){
             }
 
             var iComputedHeight = c.item_height * d.length;
-            console.timeEnd('Prepare data');
 
             // Transitions
             var d3TransitionExit = d3.transition()
@@ -610,7 +602,7 @@ function whizzy_table(){
                             ;
 
                         // Row title (left edge)
-                        d3.select(this).append('text').text(d.name)
+                        d3.select(this).append('text').text(c.key)
                             .style('cursor', 'pointer')
                             .on('click', function(d,i){window.open(d.URL);})
                             ;
@@ -647,8 +639,6 @@ function whizzy_table(){
                 });
 
             c.yInitialised = true;
-            console.timeEnd('Total');
-            console.groupEnd('Whizzy Table');
         });
     }
 
@@ -673,8 +663,6 @@ function whizzy_table(){
 }
 
 function init(sJSONData){
-    window.sJSONData = sJSONData;
-
     // Clean-up source data by replacing symbolic names ('n/a', 'No', 'Yes') 
     // with numeric equivalents (0, 0, 1 respectively).
     function clean(mData){
@@ -701,7 +689,7 @@ function init(sJSONData){
                 break;
 
             case 'boolean':
-                return mData ? 0 : 1 ;
+                return mData ? 1 : 0 ;
                 break;
 
             case 'undefined':
@@ -716,12 +704,17 @@ function init(sJSONData){
                 console.error('Cannot clean() data of type %s', typeof(mData));
         }
     }
+    window.sJSONDataOriginal = sJSONData;
     sJSONData = clean(sJSONData);
+    window.sJSONData = sJSONData;
 
     // Alias bad data
     sJSONData.rows.forEach(function(d,i,l){
             // Brand
             d.brand = d.name.split(' ')[0];
+
+            d.spec.Price = d.price;
+            d.spec.Rating = d.rating;
 
             // THX
             if (d.spec.THX == 'Select2'){
@@ -802,16 +795,11 @@ function init(sJSONData){
                     ;
 
 
-    s.sMustHave = d3.set();
-    s.sHiddenSpecs = d3.set();
-
     s.sWhizzyTable = whizzy_table()
-        .key(function(d,i){ return d._id.$oid; })
-        .sort(function(a,b){ return d3.ascending(a.name, b.name); })
+        .key(function(d,i){ return d.name; })
+        .sort(function(a,b){return d3.ascending(a.name, b.name);})
         .headings(function(d,i){
                 var lHeadings = [];
-                lHeadings.push('Price', 'Rating');
-
                 var lData = d3.entries(d.spec);
                 for (var i=0; i<lData.length; i++){
                     var dData = lData[i];
@@ -822,7 +810,6 @@ function init(sJSONData){
             })
         .values(function(d,i){
                 var lValues = [];
-                lValues.push(d.price, d.rating);
                 var lData = d3.entries(d.spec);
                 for (var i=0; i<lData.length; i++){
                     var dData = lData[i];
@@ -839,8 +826,12 @@ function init(sJSONData){
     s.d3SelWhizzy = d3.select('p#whizzy_table');
 
     s.lData = sJSONData.rows;
+    s.sMustHave = d3.set();
+    s.sHiddenSpecs = d3.set();
+    s.rSortKey = 'Price';
 
     function update(){
+        console.time('Update');
         var lData = s.lData.filter(function(d){
             if (! (d.price <= s.iPriceMax
                 && d.price  >= s.iPriceMin
@@ -887,12 +878,21 @@ function init(sJSONData){
             .call(s.sPunchcardChartTHXWeight)
             ;
 
-        
+        s.sWhizzyTable.sort(function(a,b){
+                var c = d3.descending(a.spec[s.rSortKey], b.spec[s.rSortKey]);
+                if (c == 0){
+                    // Items compare equal, sort by name instead
+                    return d3.ascending(a.name, b.name);
+                }
+                return c;
+            });
         s.d3SelWhizzy
             .datum(lData)         // NB: datum(), not data()!
             .call(s.sWhizzyTable)
             ;
+        console.timeEnd('Update');
     }
+    window.update = update;
 
     s.sHiddenSpecs.add('Composite in');
     s.sHiddenSpecs.add('Composite out');
@@ -907,9 +907,11 @@ function init(sJSONData){
     s.d3SelWhizzy.selectAll('g.th text').on('click', function(d,i){
             var x = d3.select(this);
             if (x.classed('criteria')){
+                s.rSortKey = 'name';
                 s.sMustHave.remove(d);
                 x.classed('criteria', false);
             }else{
+                s.rSortKey = d;
                 s.sMustHave.add(d);
                 x.classed('criteria', true);
             }
@@ -917,29 +919,23 @@ function init(sJSONData){
         });
 
     window.s = s;
+    /*
     window.setTimeout(function(){
-            console.log('Price max -> 3000');
             d3.select('#price_max').attr('value', 3000).on('change')();
             update();
 
             window.setTimeout(function(){
-                console.log('Price to nearest -> 100');
-                d3.select('#price_to_nearest').attr('value', 100).on('change')();
+                d3.select('#price_to_nearest').attr('value', 250).on('change')();
                 update();
 
                 window.setTimeout(function(){
-                    console.log('Rating min -> 80');
                     d3.select('#rating_min').attr('value', 80).on('change')();
                     update();
 
-                    }, 250);
+                    }, 1000);
 
-                }, 250);
+                }, 1000);
 
-            }, 250);
-
-
-    // TODO: Restructure .headings and .values to just provide d3.entries() 
-    // style data.
-    // TODO: Click header to filter + highlight column
+            }, 1000);
+        */
 }
