@@ -21,6 +21,12 @@ var d3locale = d3.locale({
     });
 
 // Utilities
+    function distinct(d,i,l){
+        // Intended to be used with Array.filter to remove duplicates.
+        // >>> [1,2,3,4,1,2].filter(distinct)
+        // [1, 2, 3, 4]
+        return l.indexOf(d) == i;
+    }
     function isNumber(x){
         return !isNaN(+x);
     }
@@ -38,6 +44,9 @@ var d3locale = d3.locale({
             case false:     x=0; break;
             case "n/a":     x=0; break;
             case "No":      x=0; break;
+            case "NaN":     x=0; break;
+            case NaN:       x=0; break;
+
             case "true":    x=1; break;
             case true:      x=1; break;
             case "Yes":     x=1; break;
@@ -176,17 +185,27 @@ function punchcard_chart(){
                     return d3.min(d3.pairs(lData).map(function(d){return Math.abs(d[1]-d[0]);}));
                 }
 
-                var lXDomainValues = d3.set(d.map(c.x)).values().map(returnInt);
-                var iXDomainSpacing = min_gap(lXDomainValues) || 0;
+                var lXDomainValues = d.map(c.x).map(convert_to_number).filter(distinct).sort();
                 var rx = c.width / (lXDomainValues.length) / 2;
-                var scale_x = d3.scale.linear()
-                    .domain(d3.extent(d, c.x))
-                    .range([rx, c.width-rx])
-                    ;
-                var iXRangeSpacing = (scale_x(iXDomainSpacing) - scale_x(0))/2 || c.width;
+                if (d.map(c.x).every(isNumber)){
+                    // Numeric scale
+                    var scale_x = d3.scale.linear()
+                        .domain(d3.extent(d, c.x))
+                        .range([rx, c.width-rx])
+                        ;
+                    var iXDomainSpacing = min_gap(lXDomainValues) || 0;
+                    var iXRangeSpacing = Math.abs((scale_x(iXDomainSpacing) - scale_x(0)))
+                        || c.height;
+                }else{
+                    // Ordinal scale
+                    var scale_x = d3.scale.ordinal()
+                        .domain(lXDomainValues)
+                        .rangePoints([rx, c.width-rx])
+                        ;
+                    var iXRangeSpacing = min_gap(scale_x.range()) || c.height;
+                }
 
-                var lYDomainValues = d3.set(d.map(c.y)).values().map(convert_to_number);
-                var iYDomainSpacing = min_gap(lYDomainValues) || 0;
+                var lYDomainValues = d.map(c.y).map(convert_to_number).filter(distinct).sort();
                 var ry = c.height / (lYDomainValues.length) / 2;
                 if (d.map(c.y).every(isNumber)){
                     // Numeric scale
@@ -194,12 +213,13 @@ function punchcard_chart(){
                         .domain(d3.extent(d, c.y))
                         .range([c.height-ry, ry])   // SVG y-axis goes top-to-bottom
                         ;
+                    var iYDomainSpacing = min_gap(lYDomainValues) || 0;
                     var iYRangeSpacing = Math.abs((scale_y(iYDomainSpacing) - scale_y(0)))
                         || c.height;
                 }else{
                     // Ordinal scale
                     var scale_y = d3.scale.ordinal()
-                        .domain(d.map(c.y).sort())
+                        .domain(lYDomainValues)
                         .rangePoints([c.height-ry, ry])   // SVG y-axis goes top-to-bottom
                         ;
                     var iYRangeSpacing = min_gap(scale_y.range()) || c.height;
@@ -482,6 +502,7 @@ function whizzy_table(){
 
             // Transitions
             var d3TransitionExit = d3.transition()
+                .delay(1000)
                 .duration(250)
                 .ease('linear')
                 ;
@@ -697,6 +718,19 @@ function init(sJSONData){
     }
     sJSONData = clean(sJSONData);
 
+    // Alias bad data
+    sJSONData.rows.forEach(function(d,i,l){
+            // Brand
+            d.brand = d.name.split(' ')[0];
+
+            // THX
+            if (d.spec.THX == 'Select2'){
+                d.spec.THX = 'Select 2';
+            } else if (d.spec.THX == 'Select2 Plus'){
+                d.spec.THX = 'Select 2 Plus';
+            }
+        });
+
     d3.select('#review_count').text(sJSONData.total_rows);
 
     var s = {}; // State
@@ -755,13 +789,12 @@ function init(sJSONData){
 
     s.sPunchcardChartTHXWeight = punchcard_chart()
                     .width(600)
-                    .height(140)
-                    .x(function(d){return parseInt(d.key.split(',')[0]);})
+                    .height(200)
+                    .x(function(d){return d.key.split(',')[0];})
                     .y(function(d){return d.key.split(',')[1];})
                     .d(function(d){return d.values.length;})
-                    .x_label('Weight (kg)')
+                    .x_label('THX')
                     .y_label('')
-                    .x_tick_format(d3locale.numberFormat(','))
                     .click(function(d,i){
                             s.lData = d.values;
                             update();
@@ -769,8 +802,9 @@ function init(sJSONData){
                     ;
 
 
-    s.sHighlightedSpecs = d3.set();
+    s.sMustHave = d3.set();
     s.sHiddenSpecs = d3.set();
+
     s.sWhizzyTable = whizzy_table()
         .key(function(d,i){ return d._id.$oid; })
         .sort(function(a,b){ return d3.ascending(a.name, b.name); })
@@ -808,12 +842,20 @@ function init(sJSONData){
 
     function update(){
         var lData = s.lData.filter(function(d){
-            return (d.price <= s.iPriceMax
+            if (! (d.price <= s.iPriceMax
                 && d.price  >= s.iPriceMin
                 && d.rating <= s.iRatingMax
                 && d.rating >= s.iRatingMin
                 && d.name.indexOf(s.rNameFilter) != -1
-                );
+                )){ return false; }
+
+            var lCriteria = s.sMustHave.values();
+            for (var i=0; i<lCriteria.length; i++){
+                var mValue = d.spec[lCriteria[i]] || d[lCriteria[i]] || 0;
+                if( mValue == 0){return false;}
+            }
+
+            return true;
             });
 
         var lSummaryData = d3.nest().key(function(d){
@@ -828,7 +870,7 @@ function init(sJSONData){
 
         lSummaryData = d3.nest().key(function(d){
                 var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
-                return [iPrice, d.spec.THX];
+                return [iPrice, d.spec.THX || 0];
             }).entries(lData);
 
         s.d3SelPunchTHXPrice
@@ -837,8 +879,7 @@ function init(sJSONData){
             ;
 
         lSummaryData = d3.nest().key(function(d){
-                var iWeight = Math.ceil(d.spec['Weight (kg)']/5)*5;
-                return [iWeight, d.spec.THX];
+                return [d.spec.THX || 0, d.brand];
             }).entries(lData);
 
         s.d3SelPunchTHXWeight
@@ -860,7 +901,20 @@ function init(sJSONData){
     s.sHiddenSpecs.add('Video scaling');
     s.sHiddenSpecs.add('Video upconversion');
     s.sHiddenSpecs.add('Multiroom');
+
     update();
+
+    s.d3SelWhizzy.selectAll('g.th text').on('click', function(d,i){
+            var x = d3.select(this);
+            if (x.classed('criteria')){
+                s.sMustHave.remove(d);
+                x.classed('criteria', false);
+            }else{
+                s.sMustHave.add(d);
+                x.classed('criteria', true);
+            }
+            update();
+        });
 
     window.s = s;
     window.setTimeout(function(){
@@ -869,8 +923,8 @@ function init(sJSONData){
             update();
 
             window.setTimeout(function(){
-                console.log('Price to nearest -> 10000');
-                d3.select('#price_to_nearest').attr('value', 10000).on('change')();
+                console.log('Price to nearest -> 100');
+                d3.select('#price_to_nearest').attr('value', 100).on('change')();
                 update();
 
                 window.setTimeout(function(){
@@ -878,17 +932,11 @@ function init(sJSONData){
                     d3.select('#rating_min').attr('value', 80).on('change')();
                     update();
 
-                    window.setTimeout(function(){
-                        console.log('Name filter -> Onkyo');
-                        d3.select('#name_filter').attr('value', 'Onkyo').on('change')();
-                        update();
-                        }, 1000);
+                    }, 250);
 
-                    }, 1000);
+                }, 250);
 
-                }, 1000);
-
-            }, 1000);
+            }, 250);
 
 
     // TODO: Restructure .headings and .values to just provide d3.entries() 

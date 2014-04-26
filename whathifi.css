@@ -88,6 +88,9 @@ svg.punchcard_chart g.y_axis g.tick text {
 svg.whizzy_table {
     padding-right: 50px;    /* Allow for slanted headings which extend past the edge */
 }
+g.th text.criteria {
+    fill: red;
+}
 g.heading text {
     fill: black;
     stroke: none;
