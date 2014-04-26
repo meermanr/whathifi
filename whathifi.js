@@ -21,30 +21,30 @@ var d3locale = d3.locale({
     });
 
 // Utilities
-function isNumber(x){
-    return !isNaN(+x);
-}
-function isBoolean(x){
-    switch(+x){
-        case 0:  return true; break;
-        case 1:  return true; break;
-        default: return false;
+    function isNumber(x){
+        return !isNaN(+x);
     }
-}
-function convert_to_number(x){
-    switch(x){
-        case "":        x=0; break;
-        case "false":   x=0; break;
-        case false:     x=0; break;
-        case "n/a":     x=0; break;
-        case "No":      x=0; break;
-        case "true":    x=1; break;
-        case true:      x=1; break;
-        case "Yes":     x=1; break;
+    function isBoolean(x){
+        switch(+x){
+            case 0:  return true; break;
+            case 1:  return true; break;
+            default: return false;
+        }
     }
-    if( !isNaN(+x) ){return parseFloat(x);}
-    else { return x; }
-}
+    function convert_to_number(x){
+        switch(x){
+            case "":        x=0; break;
+            case "false":   x=0; break;
+            case false:     x=0; break;
+            case "n/a":     x=0; break;
+            case "No":      x=0; break;
+            case "true":    x=1; break;
+            case true:      x=1; break;
+            case "Yes":     x=1; break;
+        }
+        if( !isNaN(+x) ){return parseFloat(x);}
+        else { return x; }
+    }
 
 function punchcard_chart(){
     /*
@@ -207,7 +207,7 @@ function punchcard_chart(){
                         || c.height/2;
                 }
 
-                var iMinRangeSpacing = Math.min(iXRangeSpacing, iYRangeSpacing);
+                var iMinRangeSpacing = Math.min(iXRangeSpacing, iYRangeSpacing)/2;
                 var scale_d = d3.scale.sqrt()
                     .domain([0, d3.max(d, c.d)])
                     .range([0, iMinRangeSpacing])
@@ -270,6 +270,20 @@ function punchcard_chart(){
                     .classed('new', false)
                     ;
 
+                // Enter
+                d3Selection.enter().append('g')
+                    .classed('new', true)
+                    .classed('bubble', true)
+                    .each(function(){
+                        d3.select(this).append('title');
+                        d3.select(this).append('circle')
+                            .attr('cx', extract_data_x_and_scale)
+                            .attr('cy', extract_data_y_and_scale)
+                            .attr('r', 0)
+                            ;
+                        })
+                    ;
+
                 // Update (resize chart)
                 d3Selection.select('circle')
                     .datum(function(d){return d;})
@@ -277,23 +291,6 @@ function punchcard_chart(){
                     .attr('r', extract_data_d_and_scale)
                     .attr('cx', extract_data_x_and_scale)
                     .attr('cy', extract_data_y_and_scale)
-                    ;
-
-                // Enter
-                d3Selection.enter().append('g')
-                    .classed('new', true)
-                    .classed('bubble', true)
-                    .each(function(d,i){
-                            d3.select(this).append('title');
-                            d3.select(this).append('circle')
-                                .classed('bubble', true)
-                                .attr('cx', extract_data_x_and_scale)
-                                .attr('cy', extract_data_y_and_scale)
-                                .attr('r', 0)
-                            .transition()
-                                .attr('r', extract_data_d_and_scale)
-                                ;
-                        })
                     ;
 
                 // Update (metadata)
@@ -455,21 +452,11 @@ function whizzy_table(){
                 for (var k in c.dDataByHeading){
                     var lData = c.dDataByHeading[k].values();
 
-                    // Remove duplicates
-                    lData = lData.sort();
-                    var lDistinctData = [];
-                    for (var i=0; i<lData.length; i++){
-                        if (i==0){lDistinctData.push(lData[i]); continue;}
-                        if (lData[i]==lData[i-1]){continue;}
-                        lDistinctData.push(lData[i]);
-                    }
-
-                    lData = lDistinctData;
-
                     if (lData.every(isNumber)){
                         if (lData.every(isBoolean)){
                             c.dRendererByHeading[k] = boolean;
                         } else {
+                            lData = lData.sort();
                             c.dRendererByHeading[k] = numeric;
                             c.dScaleByHeading[k] = d3.scale.linear()
                                 .domain([d3.quantile(lData, 0),
@@ -732,7 +719,6 @@ function init(sJSONData){
                 // Avoid using `this` or any arguments, so we can trigger the 
                 // event programattically as
                 // `d3.select(...).on('change')()`
-                console.log(d, this, arguments);
                 s[rAttributeName]=d3.select(rDOMElementID)[0][0].value;
                 update();
             });
@@ -761,7 +747,7 @@ function init(sJSONData){
                     .y(function(d){return d.key.split(',')[1];})
                     .d(function(d){return d.values.length;})
                     .x_label('Price (£GBP)')
-                    .y_label('THX')
+                    .y_label('')
                     .x_tick_format(d3locale.numberFormat(','))
                     .click(function(d,i){
                             s.lData = d.values;
@@ -776,7 +762,7 @@ function init(sJSONData){
                     .y(function(d){return d.key.split(',')[1];})
                     .d(function(d){return d.values.length;})
                     .x_label('Weight (kg)')
-                    .y_label('THX')
+                    .y_label('')
                     .x_tick_format(d3locale.numberFormat(','))
                     .click(function(d,i){
                             s.lData = d.values;
@@ -862,9 +848,9 @@ function init(sJSONData){
             .call(s.sPunchcardChartTHXWeight)
             ;
 
+        
         s.d3SelWhizzy
             .datum(lData)         // NB: datum(), not data()!
-            //.datum(lData.slice(0,3))  // XXX
             .call(s.sWhizzyTable)
             ;
     }
@@ -880,22 +866,18 @@ function init(sJSONData){
 
     window.s = s;
     window.setTimeout(function(){
-            console.log('t.each()::A', this, arguments);
             d3.select('#price_max').attr('value', 3000).on('change')();
             update();
 
             window.setTimeout(function(){
-                console.log('t.each()::B', this, arguments);
                 d3.select('#price_to_nearest').attr('value', 250).on('change')();
                 update();
 
                 window.setTimeout(function(){
-                    console.log('t.each()::B', this, arguments);
                     d3.select('#rating_min').attr('value', 80).on('change')();
                     update();
 
                     window.setTimeout(function(){
-                        console.log('t.each()::B', this, arguments);
                         d3.select('#name_filter').attr('value', 'Onkyo').on('change')();
                         update();
                         }, 1000);
@@ -905,17 +887,7 @@ function init(sJSONData){
                 }, 1000);
 
             }, 1000);
-    // .transition()
-    //     .each('start', function(){
-    //         d3.select('#rating_min').attr('value', 80).on('change')();
-    //         update();
-    //         })
-    // .transition()
-    //     .each('start', function(){
-    //         d3.select('#name_filter').attr('value', 'Onkyo').on('change')();
-    //         update();
-    //         })
-        ;
+
 
     // TODO: Restructure .headings and .values to just provide d3.entries() 
     // style data.
