@@ -352,11 +352,7 @@ function whizzy_table(){
             }
 
             function isNumber(x){
-                try{
-                    return !isNaN(parseFloat(x));
-                }catch(e){
-                    return false;
-                }
+                return !isNaN(+x);
             }
             function isBoolean(x){
                 switch(x){
@@ -383,11 +379,13 @@ function whizzy_table(){
                 }
             }
 
+            var dScaleByHeading = {};    // rHeading -> d3.scale.linear() which outputs color
+
             function boolean(d,i){
                 // `this`: (DOMElement) Element to render chart within, e.g.  svg
-                // `d`: (Object) Input data
+                // `d`: (Array) 0: rHeading, 1: mValue
                 // `i`: (int) Index within the outer selection
-                var iValue = convert_to_number(d);
+                var iValue = convert_to_number(d[1]);
                 if(iValue==1){
                     d3.select(this).append('circle')
                         .classed('boolean', true)
@@ -398,14 +396,22 @@ function whizzy_table(){
             }
             function numeric(d,i){
                 // `this`: (DOMElement) Element to render chart within, e.g.  svg
-                // `d`: (Object) Input data
+                // `d`: (Array) 0: rHeading, 1: mValue
                 // `i`: (int) Index within the outer selection
-                var iValue = convert_to_number(d);
-                return iValue;
+                var iValue = convert_to_number(d[1]);
+                d3.select(this).append('rect')
+                    .attr('x', -sScaleX.rangeBand()/2)
+                    .attr('y', -c.item_height)
+                    .attr('width', sScaleX.rangeBand())
+                    .attr('height', c.item_height)
+                    .style('fill', dScaleByHeading[d[0]](iValue))
+                    .append('title')
+                        .text(iValue)
+                    ;
             }
             function string(d,i){
                 // `this`: (DOMElement) Element to render chart within, e.g.  svg
-                // `d`: (Object) Input data
+                // `d`: (Array) 0: rHeading, 1: mValue
                 // `i`: (int) Index within the outer selection
                 return '';
             }
@@ -433,6 +439,13 @@ function whizzy_table(){
                         dRendererByHeading[k] = boolean;
                     } else {
                         dRendererByHeading[k] = numeric;
+                        dScaleByHeading[k] = d3.scale.linear()
+                            .domain([d3.quantile(lData, .25),
+                                     d3.quantile(lData, .50),
+                                     d3.quantile(lData, .75)
+                                     ])
+                            .range(['#c00', '#cc0', '#0c0'])
+                            ;
                     }
                 }else{
                     dRendererByHeading[k] = string;
@@ -529,7 +542,7 @@ function whizzy_table(){
                                     return 'translate('+x+',0)';
                                 })
                             .each(function(d,i){
-                                    return dRendererByHeading[d[0]].call(this, d[1], i);
+                                    return dRendererByHeading[d[0]].call(this, d, i);
                                 })
                             ;
                     })
@@ -640,7 +653,7 @@ function init(sJSONData){
             })
         ;
     s.lData.sort(function(a,b){return d3.ascending(a.name, b.name);});
-    s.lData = s.lData.slice(0,3);   // XXX
+    // s.lData = s.lData.slice(0,3);   // XXX
     s.d3SelWhizzy = d3.select('p#whizzy_table')
         .datum(s.lData)
         .call(s.sWhizzyTable)
