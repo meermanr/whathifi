@@ -367,7 +367,7 @@ function whizzy_table(){
 
             // Prepare data
             console.groupCollapsed('Prepare data');
-            if (c.dDataByHeading === undefined){
+            if (true || c.dDataByHeading === undefined){
                 console.log('Init c.dDataByHeading');
                 c.dDataByHeading = {};   // rHeading -> d3.set() of seen values (CONVERTED TO STRING!)
                 for (var i=0; i<d.length; i++){
@@ -429,7 +429,7 @@ function whizzy_table(){
             }
 
 
-            if (c.dScaleByHeading === undefined ){
+            if (true || c.dScaleByHeading === undefined ){
                 console.log('Init c.dScaleByHeading');
                 c.dScaleByHeading = {};    // rHeading -> d3.scale.linear() which outputs color
                 c.dRendererByHeading = {};    // rHeading -> fncChart
@@ -455,9 +455,9 @@ function whizzy_table(){
                         } else {
                             c.dRendererByHeading[k] = numeric;
                             c.dScaleByHeading[k] = d3.scale.linear()
-                                .domain([d3.quantile(lData, .25),
-                                         d3.quantile(lData, .50),
-                                         d3.quantile(lData, .75)
+                                .domain([d3.quantile(lData, 0),
+                                         d3.quantile(lData, 0.5),
+                                         d3.quantile(lData, 1)
                                          ])
                                 .range(['#c00', '#cc0', '#0c0'])
                                 ;
@@ -484,7 +484,7 @@ function whizzy_table(){
                 .ease('linear')
                 ;
             var d3TransitionUpdate = d3TransitionExit.transition()
-                .duration(1000)
+                .duration(500)
                 .ease('quad', 'out')
                 ;
             var d3TransitionEnter = d3TransitionUpdate.transition()
@@ -535,13 +535,6 @@ function whizzy_table(){
                 .classed('th', true)
                 .attr('transform', function(d,i){return 'translate('+sScaleX(d,i)+',0)';})
                 .each(function(d,i){
-                        d3.select(this).append('rect')
-                            .classed('tc', true)
-                            .attr('x', 0)
-                            .attr('y', 0)
-                            .attr('width', sScaleX.rangeBand())
-                            .attr('height', iComputedHeight)
-                            ;
                         d3.select(this).append('text')
                             .attr('transform', 'translate('+sScaleX.rangeBand()/2+',0) rotate(-45)')
                             .text(function(d){return d;})
@@ -594,7 +587,10 @@ function whizzy_table(){
                             ;
 
                         // Row title (left edge)
-                        d3.select(this).append('text').text(d.name);
+                        d3.select(this).append('text').text(d.name)
+                            .style('cursor', 'pointer')
+                            .on('click', function(d,i){window.open(d.URL);})
+                            ;
 
                         // Data
                         var lHeadings = c.headings(d);
@@ -761,4 +757,7 @@ function init(sJSONData){
 
     window.s = s;
 
+    // TODO: Restructure .headings and .values to just provide d3.entries() 
+    // style data.
+    // TODO: Click header to filter + highlight column
 }
