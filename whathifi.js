@@ -183,7 +183,7 @@ function punchcard_chart(){
                     .domain(d3.extent(d, c.x))
                     .range([rx, c.width-rx])
                     ;
-                var iXRangeSpacing = (scale_x(iXDomainSpacing) - scale_x(0))/2 || c.width/2;
+                var iXRangeSpacing = (scale_x(iXDomainSpacing) - scale_x(0))/2 || c.width;
 
                 var lYDomainValues = d3.set(d.map(c.y)).values().map(convert_to_number);
                 var iYDomainSpacing = min_gap(lYDomainValues) || 0;
@@ -194,23 +194,21 @@ function punchcard_chart(){
                         .domain(d3.extent(d, c.y))
                         .range([c.height-ry, ry])   // SVG y-axis goes top-to-bottom
                         ;
-                    var iYRangeSpacing = Math.abs((scale_y(iYDomainSpacing) - scale_y(0))/2)
-                        || c.height/2;
+                    var iYRangeSpacing = Math.abs((scale_y(iYDomainSpacing) - scale_y(0)))
+                        || c.height;
                 }else{
                     // Ordinal scale
                     var scale_y = d3.scale.ordinal()
                         .domain(d.map(c.y).sort())
                         .rangePoints([c.height-ry, ry])   // SVG y-axis goes top-to-bottom
                         ;
-                    var iYRangeSpacing = (scale_y.rangeExtent()[1] - scale_y.rangeExtent()[0])
-                                         /  scale_y.domain().length
-                        || c.height/2;
+                    var iYRangeSpacing = min_gap(scale_y.range()) || c.height;
                 }
 
-                var iMinRangeSpacing = Math.min(iXRangeSpacing, iYRangeSpacing)/2;
+                var iMaxRadius = Math.min(iXRangeSpacing, iYRangeSpacing)/2;
                 var scale_d = d3.scale.sqrt()
                     .domain([0, d3.max(d, c.d)])
-                    .range([0, iMinRangeSpacing])
+                    .range([0, iMaxRadius])
                     ;
 
                 extract_data_x_and_scale = function extract_data_x_and_scale(d,i){return scale_x(c.x(d,i));}
@@ -725,7 +723,7 @@ function init(sJSONData){
     });
 
     s.sPunchcardChartRatingPrice = punchcard_chart()
-                    .width(500)
+                    .width(600)
                     .height(140)
                     .x(function(d){return parseInt(d.key.split(',')[0]);})
                     .y(function(d){return parseInt(d.key.split(',')[1]);})
@@ -741,7 +739,7 @@ function init(sJSONData){
                     ;
 
     s.sPunchcardChartTHXPrice = punchcard_chart()
-                    .width(500)
+                    .width(600)
                     .height(140)
                     .x(function(d){return parseInt(d.key.split(',')[0]);})
                     .y(function(d){return d.key.split(',')[1];})
@@ -756,7 +754,7 @@ function init(sJSONData){
                     ;
 
     s.sPunchcardChartTHXWeight = punchcard_chart()
-                    .width(500)
+                    .width(600)
                     .height(140)
                     .x(function(d){return parseInt(d.key.split(',')[0]);})
                     .y(function(d){return d.key.split(',')[1];})
@@ -866,18 +864,22 @@ function init(sJSONData){
 
     window.s = s;
     window.setTimeout(function(){
+            console.log('Price max -> 3000');
             d3.select('#price_max').attr('value', 3000).on('change')();
             update();
 
             window.setTimeout(function(){
-                d3.select('#price_to_nearest').attr('value', 250).on('change')();
+                console.log('Price to nearest -> 10000');
+                d3.select('#price_to_nearest').attr('value', 10000).on('change')();
                 update();
 
                 window.setTimeout(function(){
+                    console.log('Rating min -> 80');
                     d3.select('#rating_min').attr('value', 80).on('change')();
                     update();
 
                     window.setTimeout(function(){
+                        console.log('Name filter -> Onkyo');
                         d3.select('#name_filter').attr('value', 'Onkyo').on('change')();
                         update();
                         }, 1000);
