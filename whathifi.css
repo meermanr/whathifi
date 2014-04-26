@@ -1,3 +1,9 @@
+
+p#controls {
+    float: left;
+    width: 50%;
+}
+
 /*********************************************************
  * PUNCHCARD CHART
  */
@@ -10,8 +16,10 @@ svg.punchcard_chart g.bubble circle {
     stroke: black;
     fill: steelblue;
 }
-svg.punchcard_chart g.bubble.new circle {
+svg.punchcard_chart g.bubble.active circle {
     /* filter: url(#filter1); */
+    fill: red;
+    stroke-width: 3;
 }
 svg.punchcard_chart g.bubble circle:hover {
     fill: orange;
@@ -61,10 +69,6 @@ svg.punchcard_chart g.y_axis g.tick text {
     stroke: none;
     fill: black;
     font-size: smaller;
-}
-
-ul#hover_details {
-    float: left;
 }
 
 /*********************************************************

@@ -96,7 +96,7 @@ function punchcard_chart(){
     c.d_tick_format = function(v,d){return v.toString();}
     c.x_label = '';
     c.y_label = '';
-    c.mouseover = function(d,i){console.log(this,d,i);};
+    c.click = function(d,i){console.log(this,d,i);};
 
     // Passed as the second argument (`key`) to to d3.selection.data
     c.key    = function(d,i){return ''+c.x(d,i)+','+c.y(d,i);};
@@ -262,7 +262,7 @@ function punchcard_chart(){
                     .each(function(d,i){
                             var rTitle = c.d_tick_format(c.d(d), d);
                             d3.select(this)
-                                .on('mouseover', c.mouseover)
+                                .on('click', c.click)
                             .select('title')
                                 .text(rTitle)
                                 ;
@@ -325,8 +325,38 @@ function whizzy_table(){
     c.row_title_width = 160;
     c.item_height = 14;
     c.key = function(d,i){return d.key;};           // Row heading
+    c.sort = function(a,b){return d3.ascending(c.key(a), c.key(b));};
     c.headings = function(d,i){return d.headings;}; // Table headings
     c.values = function(d,i){return d.values;};     // Row data
+    c.dScaleByHeading;
+    c.dDataByHeading;
+    c.dRendererByHeading;
+
+
+    // Utilities
+    function isNumber(x){
+        return !isNaN(+x);
+    }
+    function isBoolean(x){
+        switch(x){
+            case 0:  return true; break;
+            case 1:  return true; break;
+            default: return false;
+        }
+    }
+    function convert_to_number(x){
+        switch(x){
+            case "false":   x=0; break;
+            case false:     x=0; break;
+            case "n/a":     x=0; break;
+            case "No":      x=0; break;
+            case "true":    x=1; break;
+            case true:      x=1; break;
+            case "Yes":     x=1; break;
+        }
+        if( !isNaN(+x) ){return parseFloat(x);}
+        else { return x; }
+    }
 
     // Chart functionality
     function my(d3OuterSelection){
@@ -337,49 +367,22 @@ function whizzy_table(){
 
             // Prepare data
             console.groupCollapsed('Prepare data');
-            var dDataByHeading = {};   // rHeading -> d3.set() of seen values (CONVERTED TO STRING!)
-            for (var i=0; i<d.length; i++){
-                var dItem = d[i];
-                var lDataHeadings = c.headings(dItem,i);
-                var lDataValues = c.values(dItem,i);
-                for (var j=0; j<lDataHeadings.length; j++)
-                {
-                    var rHeading = lDataHeadings[j];
-                    var mValue = lDataValues[j];
-                    if (dDataByHeading[rHeading] === undefined){dDataByHeading[rHeading] = d3.set();}
-                    dDataByHeading[rHeading].add(mValue);
+            if (c.dDataByHeading === undefined){
+                console.log('Init c.dDataByHeading');
+                c.dDataByHeading = {};   // rHeading -> d3.set() of seen values (CONVERTED TO STRING!)
+                for (var i=0; i<d.length; i++){
+                    var dItem = d[i];
+                    var lDataHeadings = c.headings(dItem,i);
+                    var lDataValues = c.values(dItem,i);
+                    for (var j=0; j<lDataHeadings.length; j++)
+                    {
+                        var rHeading = lDataHeadings[j];
+                        var mValue = lDataValues[j];
+                        if (c.dDataByHeading[rHeading] === undefined){c.dDataByHeading[rHeading] = d3.set();}
+                        c.dDataByHeading[rHeading].add(mValue);
+                    }
                 }
             }
-
-            function isNumber(x){
-                return !isNaN(+x);
-            }
-            function isBoolean(x){
-                switch(x){
-                    case 0:  return true; break;
-                    case 1:  return true; break;
-                    default: return false;
-                }
-            }
-            function convert_to_number(x){
-                switch(x){
-                    case "false":   x=0; break;
-                    case false:     x=0; break;
-                    case "n/a":     x=0; break;
-                    case "No":      x=0; break;
-                    case "true":    x=1; break;
-                    case true:      x=1; break;
-                    case "Yes":     x=1; break;
-                }
-                try{
-                    if( !isNaN(+x) ){return parseFloat(x);}
-                    else { return x; }
-                }catch(e){
-                    return x;
-                }
-            }
-
-            var dScaleByHeading = {};    // rHeading -> d3.scale.linear() which outputs color
 
             function boolean(d,i){
                 // `this`: (DOMElement) Element to render chart within, e.g.  svg
@@ -391,6 +394,8 @@ function whizzy_table(){
                         .classed('boolean', true)
                         .attr('cy', -c.item_height/2)
                         .attr('r', c.item_height/3)
+                        .append('title')
+                            .text(d[0])
                         ;
                 }
             }
@@ -404,63 +409,99 @@ function whizzy_table(){
                     .attr('y', -c.item_height)
                     .attr('width', sScaleX.rangeBand())
                     .attr('height', c.item_height)
-                    .style('fill', dScaleByHeading[d[0]](iValue))
+                    .style('fill', c.dScaleByHeading[d[0]](iValue))
                     .append('title')
-                        .text(iValue)
+                        .text(iValue+' ('+d[0]+')')
                     ;
             }
             function string(d,i){
                 // `this`: (DOMElement) Element to render chart within, e.g.  svg
                 // `d`: (Array) 0: rHeading, 1: mValue
                 // `i`: (int) Index within the outer selection
-                return '';
+                var mValue = convert_to_number(d[1]);   // E.g. 'No'->0, 'Foobar'->'Foobar'
+                if (mValue == 0){ return; }
+                var rChar = c.dScaleByHeading[d[0]](mValue);
+                d3.select(this).append('text')
+                    .text(rChar)
+                    .append('title')
+                        .text(mValue+' ('+d[0]+')')
+                    ;
             }
 
-            var dRendererByHeading = {};    // rHeading -> fncChart
 
-            // Categorise each heading
-            for (var k in dDataByHeading){
-                var lData = dDataByHeading[k].values();
-                lData = lData.map(convert_to_number);
+            if (c.dScaleByHeading === undefined ){
+                console.log('Init c.dScaleByHeading');
+                c.dScaleByHeading = {};    // rHeading -> d3.scale.linear() which outputs color
+                c.dRendererByHeading = {};    // rHeading -> fncChart
+                // Categorise each heading
+                for (var k in c.dDataByHeading){
+                    var lData = c.dDataByHeading[k].values();
+                    lData = lData.map(convert_to_number);
 
-                // Remove duplicates
-                lData = lData.sort();
-                var lDistinctData = [];
-                for (var i=0; i<lData.length; i++){
-                    if (i==0){lDistinctData.push(lData[i]); continue;}
-                    if (lData[i]==lData[i-1]){continue;}
-                    lDistinctData.push(lData[i]);
-                }
+                    // Remove duplicates
+                    lData = lData.sort();
+                    var lDistinctData = [];
+                    for (var i=0; i<lData.length; i++){
+                        if (i==0){lDistinctData.push(lData[i]); continue;}
+                        if (lData[i]==lData[i-1]){continue;}
+                        lDistinctData.push(lData[i]);
+                    }
 
-                lData = lDistinctData;
+                    lData = lDistinctData;
 
-                if (lData.every(isNumber)){
-                    if (lData.every(isBoolean)){
-                        dRendererByHeading[k] = boolean;
-                    } else {
-                        dRendererByHeading[k] = numeric;
-                        dScaleByHeading[k] = d3.scale.linear()
-                            .domain([d3.quantile(lData, .25),
-                                     d3.quantile(lData, .50),
-                                     d3.quantile(lData, .75)
-                                     ])
-                            .range(['#c00', '#cc0', '#0c0'])
+                    if (lData.every(isNumber)){
+                        if (lData.every(isBoolean)){
+                            c.dRendererByHeading[k] = boolean;
+                        } else {
+                            c.dRendererByHeading[k] = numeric;
+                            c.dScaleByHeading[k] = d3.scale.linear()
+                                .domain([d3.quantile(lData, .25),
+                                         d3.quantile(lData, .50),
+                                         d3.quantile(lData, .75)
+                                         ])
+                                .range(['#c00', '#cc0', '#0c0'])
+                                ;
+                        }
+                    }else{
+                        c.dRendererByHeading[k] = string;
+                        // Ignore explict 'no'/0/false
+                        var lDomain = lData;
+                        if (lData[0] == 0){lDomain = lData.slice(1, lData.length);}
+                        c.dScaleByHeading[k] = d3.scale.ordinal()
+                            .domain(lDomain)
+                            .range(d3.range(65, 65+lData.length).map(String.fromCharCode))
                             ;
                     }
-                }else{
-                    dRendererByHeading[k] = string;
                 }
             }
 
             var iComputedHeight = c.item_height * d.length;
             console.groupEnd();
 
+            // Transitions
+            var d3TransitionExit = d3.transition()
+                .duration(250)
+                .ease('linear')
+                ;
+            var d3TransitionUpdate = d3TransitionExit.transition()
+                .duration(1000)
+                .ease('quad', 'out')
+                ;
+            var d3TransitionEnter = d3TransitionUpdate.transition()
+                .duration(250)
+                .ease('linear')
+                ;
+
 
             var d3SVG = d3.select(this).select('svg.whizzy_table');
 
             // Create if necessary
             if (d3SVG.empty()){
-                d3SVG = d3.select(this).append('svg:svg') .classed('whizzy_table', true) ;
+                d3SVG = d3.select(this).append('svg:svg')
+                    .classed('whizzy_table', true)
+                    .style('width', c.width)
+                    .style('height', c.margin_top + iComputedHeight)
+                    ;
                 d3SVG.append('g')
                     .attr('transform', 'translate(0, '+c.margin_top+')')
                     .classed('content', true)
@@ -470,21 +511,27 @@ function whizzy_table(){
             }
 
             // Update existing
-            d3SVG
-                .attr('width', c.width)
-                .attr('height', c.margin_top + iComputedHeight)
-                ;
+            var iNewHeight = c.margin_top + iComputedHeight;
+            d3TransitionUpdate.each(function(){
+                d3SVG.transition().style('height', c.margin_top + iComputedHeight); });
+
+            d3TransitionUpdate.each(function(){
+                d3SVG.transition() .style('width', c.width) ; });
 
             d3SVG = d3.select(this).select('g.content');      // Shift focus to translated group
 
             var sScaleX = d3.scale.ordinal()    // NB: Does *NOT* handle row titles (left edge headings)
-                .domain(d3.keys(dDataByHeading).sort())
+                .domain(d3.keys(c.dDataByHeading).sort())
                 .rangeBands([c.row_title_width, c.width])
                 ;
 
-            d3SVG.select('g.heading').selectAll('g.th')
-                .data(d3.keys(dDataByHeading).sort())
-            .enter().append('g')
+
+            // HEADINGS
+            var d3Headings = d3SVG.select('g.heading').selectAll('g.th')
+                .data(d3.keys(c.dDataByHeading).sort())
+                ;
+            d3Headings.exit().remove();
+            d3Headings.enter().append('g')
                 .classed('th', true)
                 .attr('transform', function(d,i){return 'translate('+sScaleX(d,i)+',0)';})
                 .each(function(d,i){
@@ -501,17 +548,39 @@ function whizzy_table(){
                             ;
                     })
                     ;
+            d3Headings.append('g')
+                .attr('transform', function(d,i){return 'translate('+sScaleX(d,i)+',0)';})
+                .each(function(d,i){
+                        d3.select(this).selectAll('rect')
+                            .attr('width', sScaleX.rangeBand())
+                            .attr('height', iComputedHeight)
+                            ;
+                        d3.select(this).selectAll('text')
+                            .attr('transform', 'translate('+sScaleX.rangeBand()/2+',0) rotate(-45)')
+                            ;
+                    })
+                    ;
 
             var sScaleY = d3.scale.linear()
                 .domain([0, d.length-1])
                 .range([c.item_height, iComputedHeight])
                 ;
 
+
+            // DATA
+            d = d.sort(c.sort);
             var d3Rows = d3SVG.selectAll('g.tr')
                 .data(d, c.key)
                 ;
 
+            d3TransitionExit.each(function(){
+                    d3Rows.exit().transition().style('opacity', 0).remove();
+                });
+            d3TransitionUpdate.each(function(){
+                    d3Rows.transition().attr('transform', function(d,i){return 'translate(0,'+sScaleY(i)+')';});
+                });
             d3Rows.enter().append('g')
+                .style('opacity', 0)
                 .classed('tr', true)
                 .attr('transform', function(d,i){return 'translate(0,'+sScaleY(i)+')';})
                 .each(function(d,i){
@@ -542,11 +611,21 @@ function whizzy_table(){
                                     return 'translate('+x+',0)';
                                 })
                             .each(function(d,i){
-                                    return dRendererByHeading[d[0]].call(this, d, i);
+                                    return c.dRendererByHeading[d[0]].call(this, d, i);
+                                })
+                            .on('mouseenter', function(d,i){
+                                    d3.select(this).style('stroke', 'black');
+                                })
+                            .on('mouseleave', function(d,i){
+                                    d3.select(this).style('stroke', 'none');
                                 })
                             ;
                     })
                 ;
+
+            d3TransitionEnter.each(function(){
+                    d3Rows.transition().style('opacity', 1);
+                });
 
 
         });
@@ -583,6 +662,14 @@ function init(sJSONData){
     s.iRatingMax = d3.select('#rating_max')[0][0].value;
     s.iPriceMin = d3.select('#price_min')[0][0].value;
     s.iPriceMax = d3.select('#price_max')[0][0].value;
+    s.rNameFilter = d3.select('#name_filter')[0][0].value;
+
+    d3.select('#price_to_nearest').on('change', function(){s.iPriceToNearest=parseInt(this.value); update();});
+    d3.select('#price_min')       .on('change', function(){s.iPriceMin=parseInt(this.value); update();});
+    d3.select('#price_max')       .on('change', function(){s.iPriceMax=parseInt(this.value); update();});
+    d3.select('#rating_min')      .on('change', function(){s.iRatingMin=parseInt(this.value); update();});
+    d3.select('#rating_max')      .on('change', function(){s.iRatingMax=parseInt(this.value); update();});
+    d3.select('#name_filter')     .on('change', function(){s.rNameFilter=this.value; update();});
 
     s.sPunchcardChart = punchcard_chart()
                     .width(500)
@@ -594,18 +681,44 @@ function init(sJSONData){
                     .y_label('Rating (%)')
                     .x_tick_format(d3locale.numberFormat(','))
                     .y_tick_format(d3locale.numberFormat(',.g'))
-                    .mouseover(function(d,i){
-                            var lData = d.values.map(function(d){return d.name;}).sort();
-                            var s = d3.select('ul#hover_details').selectAll('li')
-                                .data(lData, function(d){return d;})
-                            s.enter().append('li')
-                                .text(function(d,i){return d;})
-                                ;
-                            s.exit().remove();
+                    .click(function(d,i){
+                            console.log(this);
+                            s.d3SelWhizzy.datum(d.values).call(s.sWhizzyTable);
                         })
                     ;
 
+    s.sHiddenSpecs = d3.set();
+    s.sWhizzyTable = whizzy_table()
+        .key(function(d,i){ return d._id.$oid; })
+        .sort(function(a,b){ return d3.ascending(a.name, b.name); })
+        .headings(function(d,i){
+                var lHeadings = [];
+                lHeadings.push('Price', 'Rating');
+
+                var lData = d3.entries(d.spec);
+                for (var i=0; i<lData.length; i++){
+                    var dData = lData[i];
+                    if (s.sHiddenSpecs.has(dData.key)){ continue; }
+                    lHeadings.push(dData.key);
+                }
+                return lHeadings;
+            })
+        .values(function(d,i){
+                var lValues = [];
+                lValues.push(d.price, d.rating);
+                var lData = d3.entries(d.spec);
+                for (var i=0; i<lData.length; i++){
+                    var dData = lData[i];
+                    if (s.sHiddenSpecs.has(dData.key)){ continue; }
+                    lValues.push(dData.value);
+                }
+                return lValues;
+            })
+        ;
+
     s.d3SelPunch = d3.select('p#punchcard_chart');
+    s.d3SelWhizzy = d3.select('p#whizzy_table');
+
     s.lData = [];
     s.lSummaryData = [];
 
@@ -616,6 +729,7 @@ function init(sJSONData){
                 && d.price  >= s.iPriceMin
                 && d.rating <= s.iRatingMax
                 && d.rating >= s.iRatingMin
+                && d.name.indexOf(s.rNameFilter) != -1
                 );
             });
 
@@ -628,34 +742,23 @@ function init(sJSONData){
             .datum(s.lSummaryData)   // NB: datum(), not data()!
             .call(s.sPunchcardChart)
             ;
+
+        s.d3SelWhizzy
+            .datum(s.lData)         // NB: datum(), not data()!
+            //.datum(s.lData.slice(0,3))  // XXX
+            .call(s.sWhizzyTable)
+            ;
     }
+
+    s.sHiddenSpecs.add('Composite in');
+    s.sHiddenSpecs.add('Composite out');
+    s.sHiddenSpecs.add('S-Video in');
+    s.sHiddenSpecs.add('S-Video out');
+    s.sHiddenSpecs.add('Video scaling');
+    s.sHiddenSpecs.add('Video upconversion');
+    s.sHiddenSpecs.add('Multiroom');
     update();
 
-    d3.select('#price_to_nearest').on('change', function(){s.iPriceToNearest=parseInt(this.value); update();});
-    d3.select('#price_min')       .on('change', function(){s.iPriceMin=parseInt(this.value); update();});
-    d3.select('#price_max')       .on('change', function(){s.iPriceMax=parseInt(this.value); update();});
-    d3.select('#rating_min')      .on('change', function(){s.iRatingMin=parseInt(this.value); update();});
-    d3.select('#rating_max')      .on('change', function(){s.iRatingMax=parseInt(this.value); update();});
+    window.s = s;
 
-    s.sWhizzyTable = whizzy_table()
-        .key(function(d,i){ return d.name; })
-        .headings(function(d,i){
-                var lHeadings = [];
-                lHeadings.push('Name', 'Price', 'Rating');
-                lHeadings = d3.merge([lHeadings, d3.keys(d.spec)]);
-                return lHeadings;
-            })
-        .values(function(d,i){
-            var lValues = [];
-            lValues.push(d.name, d.price, d.rating);
-            lValues = d3.merge([lValues, d3.values(d.spec)]);
-            return lValues;
-            })
-        ;
-    s.lData.sort(function(a,b){return d3.ascending(a.name, b.name);});
-    // s.lData = s.lData.slice(0,3);   // XXX
-    s.d3SelWhizzy = d3.select('p#whizzy_table')
-        .datum(s.lData)
-        .call(s.sWhizzyTable)
-        ;
 }

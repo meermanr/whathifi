@@ -26,22 +26,23 @@
         <p>Punchcard Chart of AV receiver ratings (y-axis) versus price in £GBP 
         (x-axis). Bubble size represent number of reviews which fall into the 
         category.</p>
-        <p>
+
+        <p id='controls'>
         <label>Round price to nearest: <input id='price_to_nearest' value='2000'/></label>
         <label>Min price: <input id='price_min' value='0'/></label>
         <label>Max price: <input id='price_max' value='99000'/></label>
         <label>Min rating: <input id='rating_min' value='0'/></label>
         <label>Max rating: <input id='rating_max' value='100'/></label>
+        <label>Name filter: <input id='name_filter'/></label>
         </p>
-        <p id='punchcard_chart'>
-        <ul id='hover_details'></ul>
-        </p>
+        <p id='punchcard_chart'></p>
         <p id='whizzy_table'></p>
 
         <!-- Load this last. It will invoke whathifi.js::init() with a data 
         payload, which will modify the document above -->
         <script type='text/javascript' src='./av_receivers.jsonp'></script>
 
+        <!-- 
         <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
             <defs>
                 <filter id="filter1" filterUnits='userSpaceOnUse' x="-50%" y="-50%" width="200%" height="200%">
@@ -60,6 +61,7 @@
                 </filter>
             </defs>
         </svg>
+        -->
 
     </body>
 </html>
