@@ -237,7 +237,6 @@ function punchcard_chart(){
                         d3XAxisLabel.text(c.x_label).attr('transform', 'translate('+c.width/2+',40)');
                     });
 
-                console.log('lYDomainValues', lYDomainValues);
                 var y_axis = d3.svg.axis()
                     .scale(scale_y)
                     .tickValues(lYDomainValues)
@@ -733,6 +732,7 @@ function init(sJSONData){
                 // Avoid using `this` or any arguments, so we can trigger the 
                 // event programattically as
                 // `d3.select(...).on('change')()`
+                console.log(d, this, arguments);
                 s[rAttributeName]=d3.select(rDOMElementID)[0][0].value;
                 update();
             });
@@ -769,6 +769,22 @@ function init(sJSONData){
                         })
                     ;
 
+    s.sPunchcardChartTHXWeight = punchcard_chart()
+                    .width(500)
+                    .height(140)
+                    .x(function(d){return parseInt(d.key.split(',')[0]);})
+                    .y(function(d){return d.key.split(',')[1];})
+                    .d(function(d){return d.values.length;})
+                    .x_label('Weight (kg)')
+                    .y_label('THX')
+                    .x_tick_format(d3locale.numberFormat(','))
+                    .click(function(d,i){
+                            s.lData = d.values;
+                            update();
+                        })
+                    ;
+
+
     s.sHighlightedSpecs = d3.set();
     s.sHiddenSpecs = d3.set();
     s.sWhizzyTable = whizzy_table()
@@ -801,6 +817,7 @@ function init(sJSONData){
 
     s.d3SelPunchRatingPrice = d3.select('p#punchcard_chart');
     s.d3SelPunchTHXPrice = d3.select('p#punchcard_chart2');
+    s.d3SelPunchTHXWeight = d3.select('p#punchcard_chart3');
     s.d3SelWhizzy = d3.select('p#whizzy_table');
 
     s.lData = sJSONData.rows;
@@ -835,6 +852,16 @@ function init(sJSONData){
             .call(s.sPunchcardChartTHXPrice)
             ;
 
+        lSummaryData = d3.nest().key(function(d){
+                var iWeight = Math.ceil(d.spec['Weight (kg)']/5)*5;
+                return [iWeight, d.spec.THX];
+            }).entries(lData);
+
+        s.d3SelPunchTHXWeight
+            .datum(lSummaryData)   // NB: datum(), not data()!
+            .call(s.sPunchcardChartTHXWeight)
+            ;
+
         s.d3SelWhizzy
             .datum(lData)         // NB: datum(), not data()!
             //.datum(lData.slice(0,3))  // XXX
@@ -853,9 +880,42 @@ function init(sJSONData){
 
     window.s = s;
     window.setTimeout(function(){
-        d3.select('#price_to_nearest').text(250);
-        update();
-    }, 1000)
+            console.log('t.each()::A', this, arguments);
+            d3.select('#price_max').attr('value', 3000).on('change')();
+            update();
+
+            window.setTimeout(function(){
+                console.log('t.each()::B', this, arguments);
+                d3.select('#price_to_nearest').attr('value', 250).on('change')();
+                update();
+
+                window.setTimeout(function(){
+                    console.log('t.each()::B', this, arguments);
+                    d3.select('#rating_min').attr('value', 80).on('change')();
+                    update();
+
+                    window.setTimeout(function(){
+                        console.log('t.each()::B', this, arguments);
+                        d3.select('#name_filter').attr('value', 'Onkyo').on('change')();
+                        update();
+                        }, 1000);
+
+                    }, 1000);
+
+                }, 1000);
+
+            }, 1000);
+    // .transition()
+    //     .each('start', function(){
+    //         d3.select('#rating_min').attr('value', 80).on('change')();
+    //         update();
+    //         })
+    // .transition()
+    //     .each('start', function(){
+    //         d3.select('#name_filter').attr('value', 'Onkyo').on('change')();
+    //         update();
+    //         })
+        ;
 
     // TODO: Restructure .headings and .values to just provide d3.entries() 
     // style data.

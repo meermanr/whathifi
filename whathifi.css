@@ -12,6 +12,10 @@ p#controls {
     border-bottom: 1px solid black;
 }
 
+p.chart {
+    display: inline-block;
+}
+
 /*********************************************************
  * PUNCHCARD CHART
  */
