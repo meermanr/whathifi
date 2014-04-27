@@ -97,16 +97,19 @@ def extract_article_data(rURL):
     return dData
 
 # -----------------------------------------------------------------------------
-def build_db():
+def build_db(rSearchURL, sCol):
     gsLog.info("Building DB...")
     siArticleURLs = iter_articles(rSearchURL)
     for rURL in siArticleURLs:
         if sCol.find({"URL": rURL}).count() == 1:
             gsLog.info("Already in DB: %s", rURL)
             continue
-        dArticle = extract_article_data(rURL)
-        pprint.pprint(dArticle)
-        sCol.insert(dArticle)
+        try:
+            dArticle = extract_article_data(rURL)
+            pprint.pprint(dArticle)
+            sCol.insert(dArticle)
+        except Exception as sEx:
+            gsLog.warn("%s", sEx)
 
 # -----------------------------------------------------------------------------
 def price_spread_by_rating(sCol):
@@ -250,20 +253,24 @@ def calc_rating_price_frequency(sCol):
 
 # -----------------------------------------------------------------------------
 def main():
-    rSearchURL = "http://www.whathifi.com/search/apachesolr_search/?filters=tid%3A379%20type%3Ahcmproduct&solrsort=is_field_star_rating%20desc&retain-filters=1"
+    #rSearchURL = "http://www.whathifi.com/search/apachesolr_search/?filters=tid%3A379%20type%3Ahcmproduct&solrsort=is_field_star_rating%20desc&retain-filters=1"
+    rSearchURL = "http://www.whathifi.com/reviews/home-cinema/style-speaker-packages"
 
     sClient = pymongo.MongoClient()
     sDB = sClient.whathifi
-    sCol = sDB.av_receivers
+    #sCol = sDB.av_receivers
+    sCol = sDB.speaker_packages
 
+    build_db(rSearchURL, sCol)
     if sCol.count() == 0:
-        build_db()
+        build_db(rSearchURL, sCol)
 
     iMin, iMax = get_price_range(sCol)
     price_spread_by_rating(sCol)
     lSpecs = find_distinct_specs(sCol)
     lRatingPriceFreq = calc_rating_price_frequency(sCol)
 
+    pprint.pprint(lSpecs)
     pprint.pprint(lRatingPriceFreq)
 
 

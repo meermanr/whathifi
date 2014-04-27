@@ -461,18 +461,18 @@ function whizzy_table(){
                 c.dRendererByHeading = {};    // rHeading -> fncChart
                 // Categorise each heading
                 for (var k in c.dDataByHeading){
-                    var lData = c.dDataByHeading[k].values();
+                    var lData = c.dDataByHeading[k].values().map(convert_to_number);
 
                     if (lData.every(isNumber)){
                         if (lData.every(isBoolean)){
                             c.dRendererByHeading[k] = boolean;
                         } else {
-                            lData = lData.sort();
+                            lData = lData.sort(d3.ascending);
                             c.dRendererByHeading[k] = numeric;
                             c.dScaleByHeading[k] = d3.scale.linear()
-                                .domain([d3.quantile(lData, 0),
+                                .domain([d3.quantile(lData, 0.0),
                                          d3.quantile(lData, 0.5),
-                                         d3.quantile(lData, 1)
+                                         d3.quantile(lData, 1.0)
                                          ])
                                 .range(['#c00', '#cc0', '#0c0'])
                                 ;
@@ -704,9 +704,37 @@ function init(sJSONData){
                 console.error('Cannot clean() data of type %s', typeof(mData));
         }
     }
-    window.sJSONDataOriginal = sJSONData;
     sJSONData = clean(sJSONData);
-    window.sJSONData = sJSONData;
+
+    // Flatten array specifications (e.g. Dimentions (cwd, cm))
+    sJSONData.rows.forEach(function(d,i,l){
+            for (var k in d.spec){
+                var v = d.spec[k];
+                if (Array.isArray(v)){
+                    d.spec[k] = v.reduce(function(a,b){return a*b;}, 0);
+                }
+            }
+        });
+
+    // Remove specifications which have no data
+    var lSpec = [];
+    sJSONData.rows.forEach(function(d,i,l){
+            lSpec = lSpec.concat(d3.entries(d.spec));
+        });
+    var lSpecGroups = d3.nest()
+        .key(function(d){return d.key;})
+        .rollup(function(l){
+                return l.map(function(d){return d.value;}).filter(distinct);
+            })
+        .entries(lSpec);
+    lSpecGroups.forEach(function(d,i,l){
+            if (d.values.length <= 1){
+                console.log('[SPEC] No variance: %s', d.key);
+                sJSONData.rows.forEach(function(item){
+                        delete item.spec[d.key];
+                    });
+            }
+        });
 
     // Alias bad data
     sJSONData.rows.forEach(function(d,i,l){
@@ -749,14 +777,18 @@ function init(sJSONData){
             });
     });
 
-    s.sPunchcardChartRatingPrice = punchcard_chart()
-                    .width(600)
-                    .height(140)
-                    .x(function(d){return parseInt(d.key.split(',')[0]);})
-                    .y(function(d){return parseInt(d.key.split(',')[1]);})
-                    .d(function(d){return d.values.length;})
+    s.fncPunch1 = function(d){
+            var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
+            return [iPrice, d.rating];
+        };
+    s.sPunchcardChart1 = punchcard_chart()
                     .x_label('Price (£GBP)')
                     .y_label('Rating (%)')
+                    .width(600)
+                    .height(140)
+                    .x(function(d){return convert_to_number(d.key.split(',')[0]);})
+                    .y(function(d){return convert_to_number(d.key.split(',')[1]);})
+                    .d(function(d){return d.values.length;})
                     .x_tick_format(d3locale.numberFormat(','))
                     .y_tick_format(d3locale.numberFormat(',.g'))
                     .click(function(d,i){
@@ -765,29 +797,51 @@ function init(sJSONData){
                         })
                     ;
 
-    s.sPunchcardChartTHXPrice = punchcard_chart()
+    s.fncPunch2 = function(d){
+            return [d.rating, d.brand];
+        };
+    s.sPunchcardChart2 = punchcard_chart()
+                    .x_label('Rating')
+                    .y_label('Brand')
                     .width(600)
-                    .height(140)
-                    .x(function(d){return parseInt(d.key.split(',')[0]);})
-                    .y(function(d){return d.key.split(',')[1];})
+                    .height(400)
+                    .x(function(d){return convert_to_number(d.key.split(',')[0]);})
+                    .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
-                    .x_label('Price (£GBP)')
-                    .y_label('')
-                    .x_tick_format(d3locale.numberFormat(','))
                     .click(function(d,i){
                             s.lData = d.values;
                             update();
                         })
                     ;
 
-    s.sPunchcardChartTHXWeight = punchcard_chart()
+    s.fncPunch3 = function(d){
+                return [d.spec['Rear speaker impedance (ohms)'] || 0, d.brand]
+        };
+    s.sPunchcardChart3 = punchcard_chart()
+                    .x_label('Rear speaker impedance (ohms)')
+                    .y_label('Brand')
                     .width(600)
-                    .height(200)
+                    .height(400)
                     .x(function(d){return d.key.split(',')[0];})
                     .y(function(d){return d.key.split(',')[1];})
                     .d(function(d){return d.values.length;})
-                    .x_label('THX')
-                    .y_label('')
+                    .click(function(d,i){
+                            s.lData = d.values;
+                            update();
+                        })
+                    ;
+
+    s.fncPunch4 = function(d){
+                return [d.spec['Rear speaker impedance (ohms)'] || 0, d.rating]
+        };
+    s.sPunchcardChart4 = punchcard_chart()
+                    .x_label('Rear speaker impedance (ohms)')
+                    .y_label('Rating')
+                    .width(600)
+                    .height(200)
+                    .x(function(d){return convert_to_number(d.key.split(',')[0]);})
+                    .y(function(d){return convert_to_number(d.key.split(',')[1]);})
+                    .d(function(d){return d.values.length;})
                     .click(function(d,i){
                             s.lData = d.values;
                             update();
@@ -820,9 +874,10 @@ function init(sJSONData){
             })
         ;
 
-    s.d3SelPunchRatingPrice = d3.select('p#punchcard_chart');
-    s.d3SelPunchTHXPrice = d3.select('p#punchcard_chart2');
-    s.d3SelPunchTHXWeight = d3.select('p#punchcard_chart3');
+    s.d3SelPunch1 = d3.select('p#punchcard_chart');
+    s.d3SelPunch2 = d3.select('p#punchcard_chart2');
+    s.d3SelPunch3 = d3.select('p#punchcard_chart3');
+    s.d3SelPunch4 = d3.select('p#punchcard_chart4');
     s.d3SelWhizzy = d3.select('p#whizzy_table');
 
     s.lData = sJSONData.rows;
@@ -849,33 +904,32 @@ function init(sJSONData){
             return true;
             });
 
-        var lSummaryData = d3.nest().key(function(d){
-                var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
-                return [iPrice, d.rating];
-            }).entries(lData);
+        var lSummaryData = d3.nest().key(s.fncPunch1).entries(lData);
 
-        s.d3SelPunchRatingPrice
+        s.d3SelPunch1
             .datum(lSummaryData)   // NB: datum(), not data()!
-            .call(s.sPunchcardChartRatingPrice)
+            .call(s.sPunchcardChart1)
             ;
 
-        lSummaryData = d3.nest().key(function(d){
-                var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
-                return [iPrice, d.spec.THX || 0];
-            }).entries(lData);
+        lSummaryData = d3.nest().key(s.fncPunch2).entries(lData);
 
-        s.d3SelPunchTHXPrice
+        s.d3SelPunch2
             .datum(lSummaryData)   // NB: datum(), not data()!
-            .call(s.sPunchcardChartTHXPrice)
+            .call(s.sPunchcardChart2)
             ;
 
-        lSummaryData = d3.nest().key(function(d){
-                return [d.spec.THX || 0, d.brand];
-            }).entries(lData);
+        lSummaryData = d3.nest().key(s.fncPunch3).entries(lData);
 
-        s.d3SelPunchTHXWeight
+        s.d3SelPunch3
             .datum(lSummaryData)   // NB: datum(), not data()!
-            .call(s.sPunchcardChartTHXWeight)
+            .call(s.sPunchcardChart3)
+            ;
+
+        lSummaryData = d3.nest().key(s.fncPunch4).entries(lData);
+
+        s.d3SelPunch4
+            .datum(lSummaryData)   // NB: datum(), not data()!
+            .call(s.sPunchcardChart4)
             ;
 
         s.sWhizzyTable.sort(function(a,b){
