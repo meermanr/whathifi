@@ -21,11 +21,19 @@
         </p>
         <p>
         In all, <span id='review_count'>COUNT</span> reviews have been scraped 
-        into my MongoDB based database.
+        into my (MongoDB based) database.
         </p>
-        <p>Punchcard Chart of AV receiver ratings (y-axis) versus price in £GBP 
-        (x-axis). Bubble size represent number of reviews which fall into the 
-        category.</p>
+        <p>
+        The punchcard charts below provide at-a-glance view of the number of 
+        reviews which fall into each category. The <em>area</em> of each bubble 
+        represents the number of reviews. So bigger bubbles represent more 
+        data. Click on a bubble to filter data.
+        </p>
+        <p>
+        Use the controls at the top of the window to filter the data and enjoy 
+        the animations as you change values. (Press enter or move focus to 
+        trigger an update).
+        </p>
 
         <p id='controls'>
         <label>Round price to nearest: <input id='price_to_nearest' value='2000'/></label>
@@ -34,19 +42,25 @@
         <label>Min rating: <input id='rating_min' value='0'/></label>
         <label>Max rating: <input id='rating_max' value='100'/></label>
         <label>Name filter: <input id='name_filter'/></label>
+
         </p>
         <p class="chart" id='punchcard_chart'></p>
         <p class="chart" id='punchcard_chart2'></p>
         <p class="chart" id='punchcard_chart3'></p>
         <p class="chart" id='punchcard_chart4'></p>
+
+        <p>
+        Click on headings to filter and sort by that column. Filtering removes 
+        0 values (including 'false' for boolean columns).
+        </p>
         <p id='whizzy_table'></p>
 
         <!-- Load this last. It will invoke whathifi.js::init() with a data 
         payload, which will modify the document above -->
-        <!--
         <script type='text/javascript' src='./av_receivers.jsonp'></script>
-        -->
+        <!--
         <script type='text/javascript' src='./speaker_packages.jsonp'></script>
+        -->
 
         <!-- 
         <svg xmlns="http://www.w3.org/2000/svg" version="1.1">

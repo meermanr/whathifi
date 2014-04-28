@@ -785,7 +785,7 @@ function init(sJSONData){
                     .x_label('Price (£GBP)')
                     .y_label('Rating (%)')
                     .width(600)
-                    .height(140)
+                    .height(200)
                     .x(function(d){return convert_to_number(d.key.split(',')[0]);})
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
@@ -798,44 +798,10 @@ function init(sJSONData){
                     ;
 
     s.fncPunch2 = function(d){
-            return [d.rating, d.brand];
+                return [d.spec.THX || 0, d.rating]
         };
     s.sPunchcardChart2 = punchcard_chart()
-                    .x_label('Rating')
-                    .y_label('Brand')
-                    .width(600)
-                    .height(400)
-                    .x(function(d){return convert_to_number(d.key.split(',')[0]);})
-                    .y(function(d){return convert_to_number(d.key.split(',')[1]);})
-                    .d(function(d){return d.values.length;})
-                    .click(function(d,i){
-                            s.lData = d.values;
-                            update();
-                        })
-                    ;
-
-    s.fncPunch3 = function(d){
-                return [d.spec['Rear speaker impedance (ohms)'] || 0, d.brand]
-        };
-    s.sPunchcardChart3 = punchcard_chart()
-                    .x_label('Rear speaker impedance (ohms)')
-                    .y_label('Brand')
-                    .width(600)
-                    .height(400)
-                    .x(function(d){return d.key.split(',')[0];})
-                    .y(function(d){return d.key.split(',')[1];})
-                    .d(function(d){return d.values.length;})
-                    .click(function(d,i){
-                            s.lData = d.values;
-                            update();
-                        })
-                    ;
-
-    s.fncPunch4 = function(d){
-                return [d.spec['Rear speaker impedance (ohms)'] || 0, d.rating]
-        };
-    s.sPunchcardChart4 = punchcard_chart()
-                    .x_label('Rear speaker impedance (ohms)')
+                    .x_label('THX')
                     .y_label('Rating')
                     .width(600)
                     .height(200)
@@ -847,6 +813,42 @@ function init(sJSONData){
                             update();
                         })
                     ;
+
+    s.fncPunch3 = function(d){
+            var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
+            return [iPrice, d.brand];
+        };
+    s.sPunchcardChart3 = punchcard_chart()
+                    .x_label('Price (£GBP)')
+                    .y_label('Brand')
+                    .width(600)
+                    .height(400)
+                    .x(function(d){return convert_to_number(d.key.split(',')[0]);})
+                    .y(function(d){return convert_to_number(d.key.split(',')[1]);})
+                    .d(function(d){return d.values.length;})
+                    .click(function(d,i){
+                            s.lData = d.values;
+                            update();
+                        })
+                    ;
+
+    s.fncPunch4 = function(d){
+            return [d.spec.THX || 0, d.brand];
+        };
+    s.sPunchcardChart4 = punchcard_chart()
+                    .x_label('THX')
+                    .y_label('Brand')
+                    .width(600)
+                    .height(400)
+                    .x(function(d){return convert_to_number(d.key.split(',')[0]);})
+                    .y(function(d){return convert_to_number(d.key.split(',')[1]);})
+                    .d(function(d){return d.values.length;})
+                    .click(function(d,i){
+                            s.lData = d.values;
+                            update();
+                        })
+                    ;
+
 
 
     s.sWhizzyTable = whizzy_table()
