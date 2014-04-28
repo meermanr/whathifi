@@ -743,7 +743,7 @@ function init(sJSONData){
     // Alias bad data
     sJSONData.rows.forEach(function(d,i,l){
             // Brand
-            d.brand = d.name.split(' ')[0];
+            d.spec.Brand = d.name.split(' ')[0];
 
             d.spec.Price = d.price;
             d.spec.Rating = d.rating;
@@ -765,6 +765,17 @@ function init(sJSONData){
         // nonlocal s
         var rNewHash = d3.entries(s)
             .map(function(d){
+                    if (d.key[0] == 'l'){
+                        d.value = d.value
+                            .filter(function(v){return v;})
+                            .map(function(v){
+                                return v.replace(',', ';');
+                            })
+                        ;
+                    }
+                    if (d.key == 'lFilters'){
+                        d.value = d.value.filter(distinct);
+                    }
                     return d.key+'='+d.value;
                 })
             .join('&')
@@ -782,7 +793,12 @@ function init(sJSONData){
                 var l = d.split('='),
                     k = l[0],
                     v = l[1];
-                s[k] = +v || v;     // Convert to number if possible
+                if (k[0] == 'l'){
+                    v = v ? v.split(',').map(function(d){return d.replace(';', ',');}) : [] ;
+                    s[k] = v;           // Don't convert to number, since +[] -> 0
+                } else {
+                    s[k] = +v || v;     // Convert to number if possible
+                }
             });
 
         // Write state -> UI controls
@@ -793,11 +809,13 @@ function init(sJSONData){
     }
 
     s.rSortKey = 'Price';
+    s.lFilters = [];        // [ rSpecName:mSpecValue, ... ]
+    s.lNegFilters = [];        // [ rSpecName, ... ]
 
     window.onhashchange = update;       // Defined below
 
     c.lControls = [
-        // [rAttributeName, rDOMElementID],
+        // [s.rAttributeName, rDOMElementID],
         ['iPriceToNearest', '#price_to_nearest'],
         ['iRatingMin',      '#rating_min'],
         ['iRatingMax',      '#rating_max'],
@@ -831,10 +849,15 @@ function init(sJSONData){
                     .x(function(d){return convert_to_number(d.key.split(',')[0]);})
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
-                    .x_tick_format(d3locale.numberFormat(','))
+                    .x_tick_format(d3locale.numberFormat('$s'))
                     .y_tick_format(d3locale.numberFormat(',.g'))
                     .click(function(d,i){
-                            console.log(this, arguments);
+                            var x = d.key.split(',')[0], x = +x || x,
+                                y = d.key.split(',')[1], y = +y || y;
+                            s.iPriceMin = x-(s.iPriceToNearest/2);
+                            s.iPriceMax = x+(s.iPriceToNearest/2);
+                            s.iRatingMin = y;
+                            s.iRatingMax = y;
                             encode_state();
                         })
                     ;
@@ -851,13 +874,18 @@ function init(sJSONData){
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
                     .click(function(d,i){
+                            var x = d.key.split(',')[0], x = +x || x,
+                                y = d.key.split(',')[1], y = +y || y;
+                            s.lFilters.push('THX:'+x);
+                            s.iRatingMin = y;
+                            s.iRatingMax = y;
                             encode_state();
                         })
                     ;
 
     c.fncPunch3 = function(d){
             var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
-            return [iPrice, d.brand];
+            return [iPrice, d.spec.Brand];
         };
     c.sPunchcardChart3 = punchcard_chart()
                     .x_label('Price (£GBP)')
@@ -867,13 +895,19 @@ function init(sJSONData){
                     .x(function(d){return convert_to_number(d.key.split(',')[0]);})
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
+                    .x_tick_format(d3locale.numberFormat('$s'))
                     .click(function(d,i){
+                            var x = d.key.split(',')[0], x = +x || x,
+                                y = d.key.split(',')[1], y = +y || y;
+                            s.iPriceMin = x-(s.iPriceToNearest/2);
+                            s.iPriceMax = x+(s.iPriceToNearest/2);
+                            s.lFilters.push('Brand:'+y);
                             encode_state();
                         })
                     ;
 
     c.fncPunch4 = function(d){
-            return [d.spec.THX || 0, d.brand];
+            return [d.spec.THX || 0, d.spec.Brand];
         };
     c.sPunchcardChart4 = punchcard_chart()
                     .x_label('THX')
@@ -884,6 +918,10 @@ function init(sJSONData){
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
                     .click(function(d,i){
+                            var x = d.key.split(',')[0], x = +x || x,
+                                y = d.key.split(',')[1], y = +y || y;
+                            s.lFilters.push('THX:'+x);
+                            s.lFilters.push('Brand:'+y);
                             encode_state();
                         })
                     ;
@@ -922,13 +960,14 @@ function init(sJSONData){
     c.d3SelWhizzy = d3.select('p#whizzy_table');
 
     c.lData = sJSONData.rows;
-    c.sMustHave = d3.set();
     c.sHiddenSpecs = d3.set();
 
     function update(){
         console.time('Update');
 
         decode_state();     // Hash -> UI + state (`s`)
+
+        var lParsedFilters = s.lFilters.map(function(d){return d.split(':');});
 
         // Update visulisations
         var lData = c.lData.filter(function(d){
@@ -939,11 +978,9 @@ function init(sJSONData){
                 && d.name.indexOf(s.rNameFilter) != -1
                 )){ return false; }
 
-            var lCriteria = c.sMustHave.values();
-            for (var i=0; i<lCriteria.length; i++){
-                var mValue = d.spec[lCriteria[i]] || d[lCriteria[i]] || 0;
-                if( mValue == 0){return false;}
-            }
+            // Apply filters
+            if (lParsedFilters.some(function(f){ return d.spec[f[0]] != f[1]; })){ return false; }
+            if (s.lNegFilters.some(function(f){ return ! d.spec[f]; })){ return false; }
 
             return true;
             });
@@ -976,6 +1013,10 @@ function init(sJSONData){
             .call(c.sPunchcardChart4)
             ;
 
+        c.d3SelWhizzy.selectAll('g.th text')
+            .classed('criteria', function(d){return s.lNegFilters.indexOf(d) >= 0;})
+            ;
+
         c.sWhizzyTable.sort(function(a,b){
                 var c = d3.descending(a.spec[s.rSortKey], b.spec[s.rSortKey]);
                 if (c == 0){
@@ -1000,17 +1041,20 @@ function init(sJSONData){
     c.sHiddenSpecs.add('Video upconversion');
     c.sHiddenSpecs.add('Multiroom');
 
-    update();
+    decode_state();         // Merge URL data into our state
+    encode_state(true);     // Write out complete state to URL HASH, and trigger update()
 
-    c.d3SelWhizzy.selectAll('g.th text').on('click', function(d,i){
+    c.d3SelWhizzy.selectAll('g.th text')
+        .classed('criteria', function(d){return s.lNegFilters.indexOf(d) >= 0;})
+        .on('click', function(d,i){
             var x = d3.select(this);
             if (x.classed('criteria')){
                 s.rSortKey = 'name';
-                c.sMustHave.remove(d);
+                delete s.lNegFilters[s.lNegFilters.indexOf(d)];
                 x.classed('criteria', false);
             }else{
                 s.rSortKey = d;
-                c.sMustHave.add(d);
+                s.lNegFilters.push(d);
                 x.classed('criteria', true);
             }
             encode_state();
