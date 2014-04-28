@@ -706,28 +706,32 @@ function init(sJSONData){
     }
     sJSONData = clean(sJSONData);
 
-    // Flatten array specifications (e.g. Dimentions (cwd, cm))
+    // Flatten array specifications (e.g. Dimentions (hwd, cm))
     sJSONData.rows.forEach(function(d,i,l){
             for (var k in d.spec){
                 var v = d.spec[k];
                 if (Array.isArray(v)){
-                    d.spec[k] = v.reduce(function(a,b){return a*b;}, 0);
+                    d.spec[k] = v.reduce(function(a,b){return a*b;}, 1);
                 }
             }
         });
 
-    // Remove specifications which have no data
-    var lSpec = [];
-    sJSONData.rows.forEach(function(d,i,l){
-            lSpec = lSpec.concat(d3.entries(d.spec));
-        });
-    var lSpecGroups = d3.nest()
+    // Remove specifications which have no varience (i.e. don't tell us 
+    // anything)
+    d3.nest()
         .key(function(d){return d.key;})
         .rollup(function(l){
+                // Return DISTINCT values
                 return l.map(function(d){return d.value;}).filter(distinct);
             })
-        .entries(lSpec);
-    lSpecGroups.forEach(function(d,i,l){
+        .entries(
+            // Create long array of {key:rSpecName, value:mSpecValue from every 
+            // article
+            d3.merge(sJSONData.rows.map(function(d,i,l){return d3.entries(d.spec);}))
+            )
+
+        // d3.nest() -> Array of {key:rSpecName, value:lDistinctSpecValues}
+        .forEach(function(d,i,l){
             if (d.values.length <= 1){
                 console.log('[SPEC] No variance: %s', d.key);
                 sJSONData.rows.forEach(function(item){
@@ -754,17 +758,55 @@ function init(sJSONData){
 
     d3.select('#review_count').text(sJSONData.total_rows);
 
-    var s = {}; // State
+    var s = {}; // State (encoded location.hash)
+    var c = {}; // Configuration
 
-    [
+    function encode_state(yForceEvent){
+        // nonlocal s
+        var rNewHash = d3.entries(s)
+            .map(function(d){
+                    return d.key+'='+d.value;
+                })
+            .join('&')
+            ;
+        if (yForceEvent && rNewHash == location.hash.replace('#', '')){
+            window.onhashchange();
+        }else{
+            location.hash = rNewHash;
+        }
+    }
+
+    function decode_state(){
+        // Decode hash -> state
+        location.hash.replace('#', '').split('&').forEach(function(d){
+                var l = d.split('='),
+                    k = l[0],
+                    v = l[1];
+                s[k] = +v || v;     // Convert to number if possible
+            });
+
+        // Write state -> UI controls
+        c.lControls.forEach(function(d,i){
+                d3.select(d[1])
+                    .attr('value', s[d[0]]);
+            });
+    }
+
+    s.rSortKey = 'Price';
+
+    window.onhashchange = update;       // Defined below
+
+    c.lControls = [
         // [rAttributeName, rDOMElementID],
         ['iPriceToNearest', '#price_to_nearest'],
         ['iRatingMin',      '#rating_min'],
         ['iRatingMax',      '#rating_max'],
-        ['iPriceMax',     '#price_max'],
-        ['iPriceMin',     '#price_min'],
+        ['iPriceMax',       '#price_max'],
+        ['iPriceMin',       '#price_min'],
         ['rNameFilter',     '#name_filter']
-    ].forEach(function(d,i){
+    ];
+
+    c.lControls.forEach(function(d,i){
         var rAttributeName = d[0],
             rDOMElementID = d[1];
         s[rAttributeName] = d3.select(rDOMElementID)[0][0].value;
@@ -773,18 +815,18 @@ function init(sJSONData){
                 // event programattically as
                 // `d3.select(...).on('change')()`
                 s[rAttributeName]=d3.select(rDOMElementID)[0][0].value;
-                update();
+                encode_state();
             });
     });
 
-    s.fncPunch1 = function(d){
+    c.fncPunch1 = function(d){
             var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
             return [iPrice, d.rating];
         };
-    s.sPunchcardChart1 = punchcard_chart()
+    c.sPunchcardChart1 = punchcard_chart()
                     .x_label('Price (£GBP)')
                     .y_label('Rating (%)')
-                    .width(600)
+                    .width(500)
                     .height(200)
                     .x(function(d){return convert_to_number(d.key.split(',')[0]);})
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
@@ -792,66 +834,63 @@ function init(sJSONData){
                     .x_tick_format(d3locale.numberFormat(','))
                     .y_tick_format(d3locale.numberFormat(',.g'))
                     .click(function(d,i){
-                            s.lData = d.values;
-                            update();
+                            console.log(this, arguments);
+                            encode_state();
                         })
                     ;
 
-    s.fncPunch2 = function(d){
+    c.fncPunch2 = function(d){
                 return [d.spec.THX || 0, d.rating]
         };
-    s.sPunchcardChart2 = punchcard_chart()
+    c.sPunchcardChart2 = punchcard_chart()
                     .x_label('THX')
                     .y_label('Rating')
-                    .width(600)
+                    .width(500)
                     .height(200)
                     .x(function(d){return convert_to_number(d.key.split(',')[0]);})
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
                     .click(function(d,i){
-                            s.lData = d.values;
-                            update();
+                            encode_state();
                         })
                     ;
 
-    s.fncPunch3 = function(d){
+    c.fncPunch3 = function(d){
             var iPrice = Math.ceil(d.price/s.iPriceToNearest)*s.iPriceToNearest;
             return [iPrice, d.brand];
         };
-    s.sPunchcardChart3 = punchcard_chart()
+    c.sPunchcardChart3 = punchcard_chart()
                     .x_label('Price (£GBP)')
                     .y_label('Brand')
-                    .width(600)
+                    .width(500)
                     .height(400)
                     .x(function(d){return convert_to_number(d.key.split(',')[0]);})
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
                     .click(function(d,i){
-                            s.lData = d.values;
-                            update();
+                            encode_state();
                         })
                     ;
 
-    s.fncPunch4 = function(d){
+    c.fncPunch4 = function(d){
             return [d.spec.THX || 0, d.brand];
         };
-    s.sPunchcardChart4 = punchcard_chart()
+    c.sPunchcardChart4 = punchcard_chart()
                     .x_label('THX')
                     .y_label('Brand')
-                    .width(600)
+                    .width(500)
                     .height(400)
                     .x(function(d){return convert_to_number(d.key.split(',')[0]);})
                     .y(function(d){return convert_to_number(d.key.split(',')[1]);})
                     .d(function(d){return d.values.length;})
                     .click(function(d,i){
-                            s.lData = d.values;
-                            update();
+                            encode_state();
                         })
                     ;
 
 
 
-    s.sWhizzyTable = whizzy_table()
+    c.sWhizzyTable = whizzy_table()
         .key(function(d,i){ return d.name; })
         .sort(function(a,b){return d3.ascending(a.name, b.name);})
         .headings(function(d,i){
@@ -859,7 +898,7 @@ function init(sJSONData){
                 var lData = d3.entries(d.spec);
                 for (var i=0; i<lData.length; i++){
                     var dData = lData[i];
-                    if (s.sHiddenSpecs.has(dData.key)){ continue; }
+                    if (c.sHiddenSpecs.has(dData.key)){ continue; }
                     lHeadings.push(dData.key);
                 }
                 return lHeadings;
@@ -869,27 +908,30 @@ function init(sJSONData){
                 var lData = d3.entries(d.spec);
                 for (var i=0; i<lData.length; i++){
                     var dData = lData[i];
-                    if (s.sHiddenSpecs.has(dData.key)){ continue; }
+                    if (c.sHiddenSpecs.has(dData.key)){ continue; }
                     lValues.push(dData.value);
                 }
                 return lValues;
             })
         ;
 
-    s.d3SelPunch1 = d3.select('p#punchcard_chart');
-    s.d3SelPunch2 = d3.select('p#punchcard_chart2');
-    s.d3SelPunch3 = d3.select('p#punchcard_chart3');
-    s.d3SelPunch4 = d3.select('p#punchcard_chart4');
-    s.d3SelWhizzy = d3.select('p#whizzy_table');
+    c.d3SelPunch1 = d3.select('p#punchcard_chart');
+    c.d3SelPunch2 = d3.select('p#punchcard_chart2');
+    c.d3SelPunch3 = d3.select('p#punchcard_chart3');
+    c.d3SelPunch4 = d3.select('p#punchcard_chart4');
+    c.d3SelWhizzy = d3.select('p#whizzy_table');
 
-    s.lData = sJSONData.rows;
-    s.sMustHave = d3.set();
-    s.sHiddenSpecs = d3.set();
-    s.rSortKey = 'Price';
+    c.lData = sJSONData.rows;
+    c.sMustHave = d3.set();
+    c.sHiddenSpecs = d3.set();
 
     function update(){
         console.time('Update');
-        var lData = s.lData.filter(function(d){
+
+        decode_state();     // Hash -> UI + state (`s`)
+
+        // Update visulisations
+        var lData = c.lData.filter(function(d){
             if (! (d.price <= s.iPriceMax
                 && d.price  >= s.iPriceMin
                 && d.rating <= s.iRatingMax
@@ -897,7 +939,7 @@ function init(sJSONData){
                 && d.name.indexOf(s.rNameFilter) != -1
                 )){ return false; }
 
-            var lCriteria = s.sMustHave.values();
+            var lCriteria = c.sMustHave.values();
             for (var i=0; i<lCriteria.length; i++){
                 var mValue = d.spec[lCriteria[i]] || d[lCriteria[i]] || 0;
                 if( mValue == 0){return false;}
@@ -906,35 +948,35 @@ function init(sJSONData){
             return true;
             });
 
-        var lSummaryData = d3.nest().key(s.fncPunch1).entries(lData);
+        var lSummaryData = d3.nest().key(c.fncPunch1).entries(lData);
 
-        s.d3SelPunch1
+        c.d3SelPunch1
             .datum(lSummaryData)   // NB: datum(), not data()!
-            .call(s.sPunchcardChart1)
+            .call(c.sPunchcardChart1)
             ;
 
-        lSummaryData = d3.nest().key(s.fncPunch2).entries(lData);
+        lSummaryData = d3.nest().key(c.fncPunch2).entries(lData);
 
-        s.d3SelPunch2
+        c.d3SelPunch2
             .datum(lSummaryData)   // NB: datum(), not data()!
-            .call(s.sPunchcardChart2)
+            .call(c.sPunchcardChart2)
             ;
 
-        lSummaryData = d3.nest().key(s.fncPunch3).entries(lData);
+        lSummaryData = d3.nest().key(c.fncPunch3).entries(lData);
 
-        s.d3SelPunch3
+        c.d3SelPunch3
             .datum(lSummaryData)   // NB: datum(), not data()!
-            .call(s.sPunchcardChart3)
+            .call(c.sPunchcardChart3)
             ;
 
-        lSummaryData = d3.nest().key(s.fncPunch4).entries(lData);
+        lSummaryData = d3.nest().key(c.fncPunch4).entries(lData);
 
-        s.d3SelPunch4
+        c.d3SelPunch4
             .datum(lSummaryData)   // NB: datum(), not data()!
-            .call(s.sPunchcardChart4)
+            .call(c.sPunchcardChart4)
             ;
 
-        s.sWhizzyTable.sort(function(a,b){
+        c.sWhizzyTable.sort(function(a,b){
                 var c = d3.descending(a.spec[s.rSortKey], b.spec[s.rSortKey]);
                 if (c == 0){
                     // Items compare equal, sort by name instead
@@ -942,39 +984,40 @@ function init(sJSONData){
                 }
                 return c;
             });
-        s.d3SelWhizzy
+        c.d3SelWhizzy
             .datum(lData)         // NB: datum(), not data()!
-            .call(s.sWhizzyTable)
+            .call(c.sWhizzyTable)
             ;
         console.timeEnd('Update');
     }
     window.update = update;
 
-    s.sHiddenSpecs.add('Composite in');
-    s.sHiddenSpecs.add('Composite out');
-    s.sHiddenSpecs.add('S-Video in');
-    s.sHiddenSpecs.add('S-Video out');
-    s.sHiddenSpecs.add('Video scaling');
-    s.sHiddenSpecs.add('Video upconversion');
-    s.sHiddenSpecs.add('Multiroom');
+    c.sHiddenSpecs.add('Composite in');
+    c.sHiddenSpecs.add('Composite out');
+    c.sHiddenSpecs.add('S-Video in');
+    c.sHiddenSpecs.add('S-Video out');
+    c.sHiddenSpecs.add('Video scaling');
+    c.sHiddenSpecs.add('Video upconversion');
+    c.sHiddenSpecs.add('Multiroom');
 
     update();
 
-    s.d3SelWhizzy.selectAll('g.th text').on('click', function(d,i){
+    c.d3SelWhizzy.selectAll('g.th text').on('click', function(d,i){
             var x = d3.select(this);
             if (x.classed('criteria')){
                 s.rSortKey = 'name';
-                s.sMustHave.remove(d);
+                c.sMustHave.remove(d);
                 x.classed('criteria', false);
             }else{
                 s.rSortKey = d;
-                s.sMustHave.add(d);
+                c.sMustHave.add(d);
                 x.classed('criteria', true);
             }
-            update();
+            encode_state();
         });
 
     window.s = s;
+    window.c = c;
     /*
     window.setTimeout(function(){
             d3.select('#price_max').attr('value', 3000).on('change')();
