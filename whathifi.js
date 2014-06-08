@@ -514,8 +514,8 @@ function whizzy_table(){
             if (d3SVG.empty()){
                 d3SVG = d3.select(this).append('svg:svg')
                     .classed('whizzy_table', true)
-                    .style('width', c.width)
-                    .style('height', c.margin_top + iComputedHeight)
+                    .attr('width', c.width)
+                    .attr('height', c.margin_top + iComputedHeight)
                     ;
                 d3SVG.append('g')
                     .attr('transform', 'translate(0, '+c.margin_top+')')
